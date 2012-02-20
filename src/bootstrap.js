@@ -23,26 +23,6 @@ var addon = {
 			spec: __SCRIPT_URI_SPEC__ + "/../" + filePath
 		})
 	}, self = this;
-function alert (aMessage, obj)
-{
-	var r = "";
-	var t = typeof(aMessage);
-	if (obj && t != "string" && t != "number" && t != "bool")
-	{
-		for(var i in aMessage)
-			try
-			{
-				r = r + i + ": " + aMessage[i] + "\n";
-			}catch(e){r = r + i + ": " + e + "\n"};
-
-
-		if (r)
-			r = "\n-------------\n"+t+"\n"+r;
-	}
-	Components.classes["@mozilla.org/consoleservice;1"]
-		.getService(Components.interfaces.nsIConsoleService)
-		.logStringMessage("addonsUpdater: " + aMessage + r);
-}
 
 var bfht = {
 	pref: Services.prefs.getBranch(PREF_BRANCH),
@@ -161,7 +141,7 @@ var bfht = {
 		{
 			if (!window)
 				return;
-alert(window.gBrowser, 1);
+
 			type = type || null;
 			var document = window.document,
 					_FillHistoryMenu = window.FillHistoryMenu,
