@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+	<setting id="bfht_num" type="integer" pref="extensions.backforwardhistorytweaks.num"/>
+	<setting id="bfht_overflow" type="menulist" pref="extensions.backforwardhistorytweaks.overflow">
+		<menulist crop="none">
+			<menupopup>
+				<menuitem id="bfht_overflow_0" value="0"/>
+				<menuitem id="bfht_overflow_1" value="1"/>
+				<menuitem id="bfht_overflow_2" value="2"/>
+			</menupopup>
+		</menulist>
+	</setting>
+	<setting id="bfht_showIndex" type="menulist" pref="extensions.backforwardhistorytweaks.showIndex">
+		<menulist crop="none">
+			<menupopup>
+				<menuitem id="bfht_showIndex_0" value="0"/>
+				<menuitem id="bfht_showIndex_1" value="1"/>
+				<menuitem id="bfht_showIndex_2" value="2"/>
+			</menupopup>
+		</menulist>
+	</setting>
+	<setting id="bfht_showIndexTotal" type="bool" pref="extensions.backforwardhistorytweaks.showIndexTotal"/>
+	<setting id="bfht_showItem" type="menulist" pref="extensions.backforwardhistorytweaks.showItem">
+		<menulist crop="none">
+			<menupopup>
+				<menuitem id="bfht_showItem_0" value="0"/>
+				<menuitem id="bfht_showItem_1" value="1"/>
+				<menuitem id="bfht_showItem_2" value="2"/>
+				<menuitem id="bfht_showItem_3" value="3"/>
+			</menupopup>
+		</menulist>
+	</setting>
+	<setting id="bfht_tooltip" type="menulist" pref="extensions.backforwardhistorytweaks.tooltip">
+		<menulist crop="none">
+			<menupopup>
+				<menuitem id="bfht_tooltip_0" value="0"/>
+				<menuitem id="bfht_tooltip_1" value="1"/>
+				<menuitem id="bfht_tooltip_2" value="2"/>
+				<menuitem id="bfht_tooltip_3" value="3"/>
+			</menupopup>
+		</menulist>
+	</setting>
+</vbox>
