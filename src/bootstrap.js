@@ -1,6 +1,5 @@
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components,
 			PREF_BRANCH = "extensions.backforwardhistorytweaks.",
-			ADDON_ID = "backforwardhistorytweaks@vano",
 			OVERFLOW_NONE = 0,
 			OVERFLOW_SCROLL = 1,
 			OVERFLOW_BUTTONS = 2,
@@ -15,8 +14,9 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components,
 			SHOW_URL = 1,
 			SHOW_TITLE_HOVER = 2,
 			SHOW_URL_HOVER = 3;
-
+var ADDON_ID;
 Cu.import("resource://gre/modules/Services.jsm");
+Cu.import("resource://gre/modules/AddonManager.jsm");
 
 var addon = {
 		getResourceURI: function(filePath) ({
@@ -25,131 +25,189 @@ var addon = {
 	}, self = this;
 
 var bfht = {
+	//load our global constants as a work around for TabMixPlus compability
+	PREF_BRANCH: PREF_BRANCH,
+	ADDON_ID: ADDON_ID,
+	OVERFLOW_NONE: OVERFLOW_NONE,
+	OVERFLOW_SCROLL: OVERFLOW_SCROLL,
+	OVERFLOW_BUTTONS: OVERFLOW_BUTTONS,
+	INDEX_NONE: INDEX_NONE,
+	INDEX_BEFORE: INDEX_BEFORE,
+	INDEX_AFTER: INDEX_AFTER,
+	TOOLTIP_NONE: TOOLTIP_NONE,
+	TOOLTIP_NAME: TOOLTIP_NAME,
+	TOOLTIP_URL: TOOLTIP_URL,
+	TOOLTIP_BOTH: TOOLTIP_BOTH,
+	SHOW_TITLE: SHOW_TITLE,
+	SHOW_URL: SHOW_URL,
+	SHOW_TITLE_HOVER: SHOW_TITLE_HOVER,
+	SHOW_URL_HOVER: SHOW_URL_HOVER,
+
 	pref: Services.prefs.getBranch(PREF_BRANCH),
 	prefs: {
-		num: {default: 15, value: 15, type: "number", min: 0, max: 999}, //number of items in list
-		overflow: {default: OVERFLOW_SCROLL, value: OVERFLOW_SCROLL, type: "number", min: 0, max: 2}, //show scrollbars = 0 none, 1 = scrollbars, 2 = up/down buttons
-		showIndex: {default: INDEX_NONE, value: INDEX_NONE, type: "number", min: 0, max: 2}, //show index number 0 = none, 1 = front, 2 = back
-		showIndexTotal: {default: false, value: false, type: "boolean"}, //show number of total items in session history
-		showItem: {default: SHOW_TITLE, value: SHOW_TITLE, type: "number", min: 0, max: 3}, //show items as: 0 = title, 1 = url, 2 = title on hover, 3 = url on hover
-		tooltip: {default: TOOLTIP_NONE, value: TOOLTIP_NONE, type: "number", min: 0, max: 3}, //show website title and/or URL address in tooltip
+		num: {default: 15, value: 15, min: 0, max: 999}, //number of items in list
+		overflow: {default: OVERFLOW_NONE, value: OVERFLOW_NONE, min: 0, max: 2}, //show scrollbars = 0 none, 1 = scrollbars, 2 = up/down buttons
+		showIndex: {default: INDEX_NONE, value: INDEX_NONE, min: 0, max: 2}, //show index number 0 = none, 1 = front, 2 = back
+		showIndexTotal: {default: false, value: false}, //show number of total items in session history
+		showItem: {default: SHOW_TITLE, value: SHOW_TITLE, min: 0, max: 3}, //show items as: 0 = title, 1 = url, 2 = title on hover, 3 = url on hover
+		tooltip: {default: TOOLTIP_NONE, value: TOOLTIP_NONE, min: 0, max: 3}, //show website title and/or URL address in tooltip
+		order: {default: 1, value: 1, min: 0, max: 1}, //list order: 1 = newest (forward) on top, 0 = newest on bottom
+		browser_sessionhistory_max_entries: {default: 50, value: 50, min: 0}, //browser.sessionhistory.max_entries
+		browser_sessionhistory_max_entries_original: {default: 50, value: 50, min: 0}, //browser.sessionhistory.max_entries
+		showChangesLog: {default: true, value: true}, //show changes log after update
+		version: {default: "", value: "", regexp: /[^0-9a-z.]/i},
 	},
-	setDefaultPrefs: function(prefix)
+	setDefaultPrefs: function(reset)
 	{
-		let prefix = prefix || "",
-				pr, name = "", domain = "";
-		if (prefix)
-		{
-			pr = bfht.prefs[prefix];
-			domain = prefix + ".";
-		}
-		else
-		{
-			pr = bfht.prefs;
-		}
-		let branch = Services.prefs.getDefaultBranch(PREF_BRANCH);
-		for (let [key, val] in Iterator(pr))
+		let obj = bfht.prefs,
+				name = "", domain = "",
+				type, branch = Services.prefs.getDefaultBranch(PREF_BRANCH);
+		for (let [key, val] in Iterator(obj))
 		{
 			name = domain + key;
-			switch (val.type)
+			switch (typeof(val.default))
 			{
 				case "boolean":
 						//make sure the setting is correct type
-						if (branch.getPrefType(name) != Ci.nsIPrefBranch.PREF_BOOL)
+						type = branch.getPrefType(name);
+						if (type != Ci.nsIPrefBranch.PREF_BOOL && type != Ci.nsIPrefBranch.PREF_INVALID)
 							branch.deleteBranch(name);
 
 						branch.setBoolPref(name, val.default);
-						val.value = this.pref.getBoolPref(name);
+						if (reset)
+							bfht.pref.setBoolPref(name, val.default);
+
+						val.value = bfht.pref.getBoolPref(name);
 					break;
 				case "number":
 						//make sure the setting is correct type
-						if (branch.getPrefType(name) != Ci.nsIPrefBranch.PREF_INT)
+						type = branch.getPrefType(name);
+						if (type != Ci.nsIPrefBranch.PREF_INT && type != Ci.nsIPrefBranch.PREF_INVALID)
 							branch.deleteBranch(name);
 
 						branch.setIntPref(name, val.default);
-						val.value = this.pref.getIntPref(name);
+						val.value = bfht.pref.getIntPref(name);
+						if (name == "num")
+						{
+							let val2 = bfht.numCheck(val.value, bfht.prefs.num.value);
+							if (val2 != val.value)
+							{
+								val.value = val2;
+								bfht.pref.setIntPref(name, val2);
+							}
+
+						}
+
 						//make sure the setting is in allowed range
-						if (val.value < val.min || (val.value > val.max && val.max != -1))
+						if (reset || ("min" in val && val.value < val.min) || ("max" in val && (val.max != -1 && val.value > val.max)))
 						{
 							val.value = val.default;
-							this.pref.setIntPref(name, val.value);
+							bfht.pref.setIntPref(name, val.value);
 						}
 					break;
 				case "string":
 						//make sure the setting is correct type
-						if (branch.getPrefType(name) != Ci.nsIPrefBranch.PREF_STRING)
+						type = branch.getPrefType(name);
+						if (type != Ci.nsIPrefBranch.PREF_STRING && type != Ci.nsIPrefBranch.PREF_INVALID)
 							branch.deleteBranch(name);
 
-						branch.setCharPref(name, val.default);
-						val.value = this.pref.getCharPref(name);
+						let str = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString);
+						str.data = val.default;
+						branch.setComplexValue(name, Ci.nsISupportsString, str);
+						val.value = bfht.pref.getComplexValue(name, Ci.nsISupportsString).data;
+						if (reset || ("regexp" in val && val.value.match(val.regexp)))
+						{
+							if (reset && name != "version")
+								bfht.pref.setComplexValue(name, Ci.nsISupportsString, str);
+						}
 					break;
-				case "object":
-						this.setDefaultPrefs(key);
-						continue;
-					break;
+				default:
+					continue;
 			}
-			if (prefix)
-				this.prefs[prefix][key].value = val.value;
-			else
-				this.prefs[key].value = val.value;
-
+			obj[key].value = val.value;
 		}
+	},
+
+	numCheck: function(val, prev)
+	{
+		val = Number(String(val).replace(/[^0-9]/g, ""));
+		if (val > 0 && val < 3)
+		{
+			val = prev > val ? 0 : 3;
+		}
+		return val;
 	},
 
 	onPrefChange: {
 		observe: function(pref, aTopic, key)
 		{
-			if(aTopic != "nsPref:changed")
+			let val, obj = bfht.prefs;
+			if(aTopic != "nsPref:changed" || typeof(obj[key]) == "undefined")
 				return;
 
-			let val;
-
+			obj = obj[key];
 			switch (pref.getPrefType(key))
 			{
 				case Ci.nsIPrefBranch.PREF_BOOL:
-						if (bfht.prefs[key].type != "boolean")
+						if (typeof(obj.default) != "boolean")
 							return false;
 
 						val = pref.getBoolPref(key);
 					break;
 				case Ci.nsIPrefBranch.PREF_INT:
-						if (bfht.prefs[key].type != "number")
+						if (typeof(obj.default) != "number")
 							return false;
 
 						val = pref.getIntPref(key);
-						if (val < bfht.prefs[key].min || (val > bfht.prefs[key].max && bfht.prefs[key].max != -1))
-							pref.setIntPref(key, bfht.prefs[key].default);
-
+						if (("min" in obj && val < obj.min)
+							|| ("max" in obj && (val > obj.max && obj.max != -1)))
+							pref.setIntPref(key, obj.default);
+						if (key == "num" && val < 3 && val > 0)
+							val = 3;
 					break;
 				case Ci.nsIPrefBranch.PREF_STRING:
-						if (bfht.prefs[key].type != "string")
+						if (typeof(obj.default) != "string")
 							return false;
 
-						val = pref.getCharPref(key);
+						val = pref.getComplexValue(key, Ci.nsISupportsString).data;
+						if ("regexp" in obj && val.match(obj.regexp))
+						{
+							let str = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString);
+							str.data = val = val == obj.value ? obj.default : obj.value;
+							pref.setComplexValue(key, Ci.nsISupportsString, str);
+						}
 					break;
 				default:
 					return;
 			}
-			changeObject(key + ".value", val, bfht.prefs);
+			changeObject("value", val, obj);
 		}
 	},
 
-	init: function(reason)
+	init: function(addon, reason)
 	{
+//		_dump(bfht.prefs, 2);
 		this.setDefaultPrefs();
+
+//		_dump(bfht.prefs, 2);
 		watchWindows(function(window, type)
 		{
 			if (!window)
 				return;
 
 			type = type || null;
+			// we need register bfht globaly in case another addon clones FillHistoryMenu function after we replaced with ours.
+			window.bfht = bfht;
 			var document = window.document,
-					_FillHistoryMenu = window.FillHistoryMenu,
-					menupopupClone = {},
+					_FillHistoryMenu = null,
 					XULBrowserWindow = window.XULBrowserWindow,
 					getWebNavigation = window.getWebNavigation,
 					gNavigatorBundle = window.gNavigatorBundle,
 					click_hold_context_menus = Services.prefs.getBranch('ui.click_hold_context_menus'),
+					showChangesLog = function()
+					{
+						window.openUILinkIn(addon.getResourceURI("changes.txt").spec, "tab");
+					},
 					onPrefChangeScroll = {
 						window: window,
 						document: document,
@@ -172,13 +230,10 @@ var bfht = {
 							if (aTopic != "addon-options-displayed" || aData != ADDON_ID)
 								return;
 
-							function fixSetting(node)
+							function settingFix(node, key)
 							{
 								//add menulist support for FF 7
-								if (Cc["@mozilla.org/xpcom/version-comparator;1"]
-											.getService(Ci.nsIVersionComparator)
-											.compare(Cc["@mozilla.org/xre/app-info;1"]
-															.getService(Ci.nsIXULAppInfo).version, "7.0") > 0)
+								if (Services.vc.compare(Services.appinfo.version, "7.0") > 0)
 									return;
 
 								var window = addonOptionsDisplayed.window,
@@ -192,9 +247,9 @@ var bfht = {
 												node.firstChild.selectedIndex = pref.getIntPref(key);
 											},
 										};
-
 								node.setAttribute("type", "control");
-								node.firstChild.value = bfht.prefs[node.id.replace("bfht_", "")].value;
+								node.firstChild.value = bfht.prefs[key].value;
+
 								prefChanged.pref.QueryInterface(Ci.nsIPrefBranch2).addObserver(node.getAttribute("pref"), prefChanged, false);
 								listen(window, window, "unload", function()
 								{
@@ -207,18 +262,15 @@ var bfht = {
 								}, window);
 								listen(window, node.firstChild, "command", function (e)
 								{
-									bfht.pref.setIntPref(node.id.replace("bfht_", ""), e.target.value);
+									bfht.pref.setIntPref(key, e.target.value);
 								});
-							}
+							} //settingFix
 
-							for (let [key, val] in Iterator(bfht.prefs))
+							function settingInit(node, key)
 							{
-								var node = $(document, "bfht_" + key);
-								if (!node) continue;
-
 								if (node.getAttribute("type") == "menulist")
 								{
-									fixSetting(node);
+									settingFix(node, key);
 								}
 								node.setAttribute("title", _("options." + key));
 								if (_("options." + key + ".desc"))
@@ -227,18 +279,61 @@ var bfht = {
 								let i = 0;
 								while(node = $(document, "bfht_" + key + "_" + i))
 								{
-									node.setAttribute("label", _("options." + key + "." + i));
+									node.setAttribute(node.tagName == "label" ? "value" : "label", _("options." + key + "." + i));
+									node.setAttribute("default", i == bfht.prefs[key].default);
 									i++;
 								}
+							} //settingInit
+
+							function setShowIndexTotal()
+							{
+								$(document, "bfht_showIndexTotal").setAttribute("disabled", bfht.prefs.showIndex.value == 0);
+							};
+							for (let [key, val] in Iterator(bfht.prefs))
+							{
+								var node = $(document, "bfht_" + key);
+								if (!node)
+									continue;
+
+								settingInit(node, key);
 							}
+							$(document, "bfht_reset_button").appendChild(document.createTextNode(_("options.reset")));
+							$(document, "bfht_reset_button").removeAttribute("value");
+							listen(window, $(document, "bfht_reset_button"), "click", bfht.setDefaultPrefs, false);
+							$(document, "bfht_showChangesLog_button").appendChild(document.createTextNode(_("options.showChangesLog.button")));
+//							$(document, "bfht_showChangesLog_button").className = "text-link";
+							$(document, "bfht_showChangesLog_button").removeAttribute("value");
+							listen(window, $(document, "bfht_showChangesLog_button"), "click", showChangesLog, false);
+							listen(window, $(document, "bfht_showIndex"), "command", setShowIndexTotal, false);
 							$(document, "bfht_num").setAttribute("min", bfht.prefs.num.min);
 							$(document, "bfht_num").setAttribute("max", bfht.prefs.num.max);
-
-							//menulist setting for FF 7 - 9
-							if (Cc["@mozilla.org/xpcom/version-comparator;1"]
-										.getService(Ci.nsIVersionComparator)
-										.compare(Cc["@mozilla.org/xre/app-info;1"]
-														.getService(Ci.nsIXULAppInfo).version, "12") < 0)
+							//a hack to allow use text in the numberbox
+							$(document, "bfht_num").prev = [0, 0, bfht.prefs.num.value];
+							var numBox = $(document, "bfht_num");
+							function replace_validateValue(numBox)
+							{
+								numBox._validateValue = function(aValue, aIsIncDec)
+								{
+									var obj = $(document, "bfht_num");
+									aValue = Number(String(aValue).replace(/[^0-9\-]/g, "")) || 0;
+									var min = numBox.min;
+									var max = numBox.max;
+									if (aValue < min)
+										aValue = min;
+									else if (aValue > max)
+										aValue = numBox._value > max ? max : numBox._value;
+									aValue = "" + aValue;
+									numBox._valueEntered = false;
+									numBox._value = Number(aValue);
+									obj.prev.push(numBox._value);
+									obj.prev.splice(0,1);
+									numBox.inputField.value = Number(aValue) ? aValue : _("all");
+									numBox._enableDisableButtons();
+									return aValue;
+								}
+							}
+							//fixing text wrap and adding menulist setting for FF 7 - 9
+							if (Services.vc.compare(Services.appinfo.version, "12") < 0)
 							{
 								//fixing text wrap
 								//for some reason on FF10 and older setting.boxObject.firstChild is null at this point. We need wait until it's available.
@@ -247,9 +342,11 @@ var bfht = {
 								{
 									for (let [key, val] in Iterator(bfht.prefs))
 									{
-										let node = $(document, "bfht_" + key).boxObject.firstChild;
-										if (!node) continue;
+										let node = $(document, "bfht_" + key);
+										if (!node || !node.boxObject.firstChild)
+											continue;
 
+										node = node.boxObject.firstChild;
 										let desc = node.getElementsByClassName("preferences-description"),
 												title = node.getElementsByClassName("preferences-title");
 
@@ -269,12 +366,150 @@ var bfht = {
 											desc[0].setAttribute("text", desc[0].value);
 											desc[0].removeAttribute("value");
 											desc[0].style.whiteSpace = "pre-wrap";
-											desc[0].lastChild.parentNode.removeChild(desc[0].lastChild);
+//											desc[0].lastChild.parentNode.removeChild(desc[0].lastChild);
 										}
 									}
+									numBox = $(document, "bfht_num").boxObject.lastChild.firstChild;
+									replace_validateValue(numBox);
+									$(document, "bfht_num").value = bfht.prefs.num.value;
+									listen(window, $(document, "bfht_num"), "change", function(e)
+									{
+										e.target.value = bfht.numCheck(e.target.value, e.target.prev[0]);
+										e.target.boxObject.lastChild.boxObject.firstChild.select();
+									}, true);
+									$(document, "bfht_showChangesLog").appendChild($(document, "bfht_showChangesLog_button"));
+									node = $(document, "bfht_reset").boxObject.firstChild.getElementsByClassName("preferences-title");
+									if (node.length)
+										node[0].insertBefore($(document, "bfht_reset_button"), node[0].firstChild);
+
+									setShowIndexTotal();
 								}}, 0, Ci.nsITimer.TYPE_ONE_SHOT);
 								unload(timer.cancel, window);
 							}
+							else
+							{
+								var desc = $(document, "bfht_showChangesLog").boxObject.firstChild.getElementsByClassName("preferences-description");
+								if (desc.length)
+								{
+									let l = document.createElement("label");
+									l.appendChild(desc[0].firstChild);
+									l.appendChild($(document, "bfht_showChangesLog_button"));
+									desc[0].appendChild(l);
+								}
+								var desc = $(document, "bfht_reset").boxObject.firstChild.getElementsByClassName("preferences-alignment");
+								if (desc.length)
+								{
+									let l = document.createElement("label");
+									l.appendChild(desc[0].firstChild);
+									l.appendChild($(document, "bfht_reset_button"));
+									desc[0].appendChild(l);
+								}
+								numBox = $(document, "bfht_num").input;
+								replace_validateValue(numBox);
+								$(document, "bfht_num").value = bfht.prefs.num.value;
+								listen(window, $(document, "bfht_num"), "change", function(e)
+								{
+									e.target.value = bfht.numCheck(e.target.value, e.target.prev[0]);
+									e.target.input.select();
+								}, true);
+								setShowIndexTotal();
+							}
+							// FF 10+ display information about addons taken from the web,
+							// that information is way too big to fit on the screen,
+							// so we restrict it to scrollbox where user don't need scroll much to get to the options.
+							if (Services.vc.compare(Services.appinfo.version, "10") > 0)
+							{
+								var timer2 = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+								function changeNode(obj, name, value, force)
+								{
+									if (!("nodeBackupData" in obj))
+									{
+										obj.nodeBackupData = {};
+										obj.nodeOrigData = {};
+									}
+
+									if (!(name in obj.nodeOrigData) || force)
+									{
+										if (!(name in obj.nodeOrigData))
+										{
+											obj.nodeOrigData[name] = obj.style[name];
+										}
+										obj.nodeBackupData[name] = obj.style[name];
+									}
+									obj.style[name] = value;
+								} //changeNode
+
+								function restoreNode(obj, name, value)
+								{
+									if ("nodeBackupData" in obj && name in obj.nodeBackupData)
+										value = obj.nodeBackupData[name];
+									else if (typeof(value) == "undefined")
+										value = obj.style[name];
+
+									changeNode(obj, name, value, 1);
+								} //restoreNode
+
+								function showDesc(obj)
+								{
+									let node = $(document, "detail-fulldesc").parentNode,
+											c = $(document, "detail-view").getElementsByClassName("detail-view-container");
+									if (obj.getAttribute("state") == "collapsed")
+									{
+										changeNode(node, "height", "10em");
+										changeNode(node, "overflow", "auto");
+										$(document, "detail-fulldesc").setAttribute("full", false);
+									}
+									else
+									{
+										changeNode(node, "maxHeight", "");
+										changeNode(node, "overflow", "");
+										$(document, "detail-fulldesc").setAttribute("full", true);
+									}
+								} //showDesc
+
+								if (!$(document, "detail-fulldesc-splitter"))
+								{
+									$(document, "detail-fulldesc").setAttribute("persist", "full");
+									timer2.init({observe: function()
+									{
+										let parent = $(document, "detail-desc").parentNode;
+										let vbox = document.createElement("vbox");
+										let splitterBox = document.createElement("vbox");
+										let splitter = document.createElement("splitter");
+										let grippy = document.createElement("grippy");
+										splitter.appendChild(grippy);
+										splitterBox.appendChild(splitter);
+										splitter.setAttribute("collapse", "before");
+										splitter.setAttribute("state", $(document, "detail-fulldesc").getAttribute("full") == "true" ? "open" : "collapsed");
+										splitter.setAttribute("resizebefore", "closest");
+										splitter.setAttribute("resizeafter", "grow");
+										splitter.id = "detail-fulldesc-splitter";
+										splitter.style.cursor = "pointer";
+										parent.appendChild(vbox);
+										vbox.appendChild($(document, "detail-fulldesc"));
+										parent.appendChild(splitterBox);
+
+										showDesc(splitter);
+										listen(window, grippy, "command", function(e){showDesc(e.target.parentNode)}, true);
+										listen(window, splitter, "click", function(e){if (e.originalTarget == splitter) grippy.click();}, false);
+										unload(function()
+										{
+											//we don't want remove persistant settings on browser shutdown
+											if (bfht.reason == APP_SHUTDOWN)
+												return;
+
+											splitter.setAttribute("state", "open");
+											showDesc(splitter);
+											splitterBox.parentNode.removeChild(splitterBox);
+											parent.appendChild($(document, "detail-fulldesc"));
+											parent.removeChild(vbox);
+											$(document, "detail-fulldesc").removeAttribute("full");
+											$(document, "detail-fulldesc").removeAttribute("persist");
+										}, window);
+									}}, 0, Ci.nsITimer.TYPE_ONE_SHOT);
+									unload(timer2.cancel, window);
+								} //detail-fulldesc-splitter
+							} //FF10+
 						} //end addonOptionsDisplayed.observe()
 					}; //end addonOptionsDisplayed
 
@@ -287,13 +522,17 @@ var bfht = {
 						menupopup = menupopup.firstChild;
 
 					if (!menupopup || menupopup.tagName != "menupopup")
+					{
+						_dump("not found: " + id);
 						return;
+					}
+						_dump("found: " + id);
 
 					if (!menupopup.origNode)
 					{
 						menupopup.origNode = menupopup.cloneNode(true);
-
-						if (!menupopup.hasStatusListener2) {
+						if (!menupopup.hasStatusListener2)
+						{
 							// Show history item's uri in the status bar when hovering, and clear on exit
 							listen(window, menupopup, "DOMMenuItemActive", function(aEvent)
 							{
@@ -319,21 +558,24 @@ var bfht = {
 						{
 							menupopup.parentNode.replaceChild(menupopup.origNode, menupopup);
 						}, window);
-					}
+					} //if !menupopup.origNode
 
-					menupopup.setAttribute("scrollbars", bfht.prefs.overflow.value == OVERFLOW_SCROLL);
+					//work around for an issue, that doesn't scroll to correct item on first opening
 					function menupopupReopen()
 					{
-						//work around for an issue, that doesn't scroll to correct item on first opening
 						menupopup.openPopup();
 						menupopup.hidePopup();
 					}
-					if (bfht.prefs.overflow.value == OVERFLOW_NONE)
+					if (bfht.prefs.overflow.value != OVERFLOW_SCROLL)
 					{
 						//work around for an issue when buttons shown after switching from scrollbars mode
+						let n = bfht.prefs.num.value;
+						let o = bfht.prefs.overflow.value;
+						bfht.prefs.num.value = 1;
 						bfht.prefs.overflow.value = OVERFLOW_BUTTONS;
 						menupopupReopen();
-						bfht.prefs.overflow.value = OVERFLOW_NONE;
+						bfht.prefs.num.value = n;
+						bfht.prefs.overflow.value = o;
 					}
 					else
 					{
@@ -348,6 +590,7 @@ var bfht = {
 			function cleanup()
 			{
 				//restore original function
+				delete window.bfht;
 				window.FillHistoryMenu = _FillHistoryMenu;
 				click_hold_context_menus.QueryInterface(Ci.nsIPrefBranch2).removeObserver('', onPrefChangeScroll);
 				bfht.pref.QueryInterface(Ci.nsIPrefBranch2).removeObserver('', onPrefChangeScroll, false);
@@ -373,6 +616,15 @@ function FillHistoryMenu(aParent) {
     aParent.hasStatusListener = true;
   }
 */
+	//to calculate proper height, we must reset the view of the popup to default
+	aParent.removeAttribute("scrollbars");
+	aParent.style.maxHeight = "";
+
+	//TMP compatibility replaced all entry.title with tablib.menuItemTitle(entry)
+	function TMP_compat(e)
+	{
+		return "tablib" in window && "menuItemTitle" in window.tablib ? window.tablib.menuItemTitle(e) : e.title;
+	}
   // Remove old entries if any
   var children = aParent.childNodes;
   for (var i = children.length - 1; i >= 0; --i) {
@@ -386,10 +638,16 @@ function FillHistoryMenu(aParent) {
   if (count <= 1) // don't display the popup for a single item
     return false;
 
-	// We use height of menu item to determine final height of popup, and we need add height of an empty popup to it, because it might have margin/padding
-	var heightAdd = aParent.boxObject.height;
-	var num = "", numBefore = "", numAfter = "", maxHeight = "", itemCurrent = null;
-	const MAX_HISTORY_MENU_ITEMS = bfht.prefs.overflow.value != OVERFLOW_NONE || !bfht.prefs.num.value ? 999999 : bfht.prefs.num.value;
+	var num = "",
+			numBefore = "",
+			numAfter = "",
+			total = bfht.prefs.showIndex.value && bfht.prefs.showIndexTotal.value ? "/" + count : "",
+			j,
+			maxHeight = 0,
+			n = 0,
+			// maybe one day we'll add separate menu for back and forward buttons 
+			backButton = aParent.parentNode.id == "back-button" || (aParent.triggerNode && aParent.triggerNode.id == "back-button");
+	const MAX_HISTORY_MENU_ITEMS = bfht.prefs.overflow.value != bfht.OVERFLOW_NONE || !bfht.prefs.num.value ? 999999 : bfht.prefs.num.value;
 //  const MAX_HISTORY_MENU_ITEMS = 15;
   var index = sessionHistory.index;
   var half_length = Math.floor(MAX_HISTORY_MENU_ITEMS / 2);
@@ -398,15 +656,26 @@ function FillHistoryMenu(aParent) {
   if (end == count)
     start = Math.max(count - MAX_HISTORY_MENU_ITEMS, 0);
 
-	var total = bfht.prefs.showIndex.value && bfht.prefs.showIndexTotal.value ? "/" + count : "";
-
   var tooltipBack = gNavigatorBundle.getString("tabHistory.goBack");
   var tooltipCurrent = gNavigatorBundle.getString("tabHistory.current");
   var tooltipForward = gNavigatorBundle.getString("tabHistory.goForward");
 
-  for (var j = end - 1; j >= start; j--) {
-//    let item = document.createElement("menuitem");
+	if (bfht.prefs.order.value)
+	{
+		j = end - 1;
+	}
+	else
+	{
+		let startBackup = start;
+		start = end;
+		end = startBackup;
+		j = end;
+	}
+	do
+	{
 		var item = document.createElement("menuitem");
+		let tooltip;
+//    let item = document.createElement("menuitem");
     let entry = sessionHistory.getEntryAtIndex(j, false);
     let uri = entry.URI.spec;
 
@@ -423,7 +692,6 @@ function FillHistoryMenu(aParent) {
       } catch (ex) {}
     }
 
-		let tooltip;
     if (j < index) {
       item.className = "unified-nav-back menuitem-iconic menuitem-with-favicon";
 //      item.setAttribute("tooltiptext", tooltipBack);
@@ -433,6 +701,8 @@ function FillHistoryMenu(aParent) {
       item.setAttribute("checked", "true");
       item.className = "unified-nav-current";
 			tooltip = tooltipCurrent;
+			aParent.selectedItem = item;
+			aParent.selectedIndex = index;
     } else {
       item.className = "unified-nav-forward menuitem-iconic menuitem-with-favicon";
 //      item.setAttribute("tooltiptext", tooltipForward);
@@ -444,10 +714,10 @@ function FillHistoryMenu(aParent) {
 			num = count - (count - j) + 1;
 			switch (bfht.prefs.showIndex.value)
 			{
-				case INDEX_BEFORE:
+				case bfht.INDEX_BEFORE:
 						numBefore = "[" + num + total +"] ";
 					break;
-				case INDEX_AFTER:
+				case bfht.INDEX_AFTER:
 						numAfter = " [" + num + total + "]";
 					break;
 				default:
@@ -455,15 +725,15 @@ function FillHistoryMenu(aParent) {
 		}
 		switch (bfht.prefs.showItem.value)
 		{
-			case SHOW_TITLE:
-			case SHOW_TITLE_HOVER:
-					item._label = entry.title || uri;
+			case bfht.SHOW_TITLE:
+			case bfht.SHOW_TITLE_HOVER:
+					item._label = TMP_compat(entry) || uri;
 					item._label2 = uri;
 				break;
-			case SHOW_URL:
-			case SHOW_URL_HOVER:
+			case bfht.SHOW_URL:
+			case bfht.SHOW_URL_HOVER:
 					item._label = uri;
-					item._label2 = entry.title || uri;
+					item._label2 = TMP_compat(entry) || uri;
 				break;
 		}
 		item._label = numBefore + item._label + numAfter;
@@ -473,45 +743,77 @@ function FillHistoryMenu(aParent) {
 		let tt = tooltip;
 		switch (bfht.prefs.tooltip.value)
 		{
-			case TOOLTIP_URL:
+			case bfht.TOOLTIP_URL:
 					tt = uri;
 				break;
-			case TOOLTIP_NAME:
-					tt = entry.title || uri;
+			case bfht.TOOLTIP_NAME:
+					tt = TMP_compat(entry) || uri;
 				break;
-			case TOOLTIP_BOTH:
-					tt = (entry.title || tooltip) + "\n(" + uri + ")";
+			case bfht.TOOLTIP_BOTH:
+					tt = (TMP_compat(entry) || tooltip) + "\n(" + uri + ")";
 				break;
 		}
 		item.setAttribute("tooltiptext", tt);
-
-    aParent.appendChild(item);
+		aParent.appendChild(item);
+		if (++n <= bfht.prefs.num.value - (bfht.prefs.overflow.value == OVERFLOW_SCROLL ? 1 : 0))
+			maxHeight = aParent.boxObject.height;
   }
+	while(bfht.prefs.order.value ? --j >= start : ++j < start);
 
-	if (bfht.prefs.num.value && end > bfht.prefs.num.value)
-		aParent.style.maxHeight = item.boxObject.height * bfht.prefs.num.value + heightAdd + "px";
+	if (bfht.prefs.overflow.value == OVERFLOW_SCROLL)
+		aParent.setAttribute("scrollbars", true);
+	else
+		aParent.removeAttribute("scrollbars");
+
+	if (bfht.prefs.num.value && count > bfht.prefs.num.value)
+		aParent.style.maxHeight = (maxHeight + (bfht.prefs.overflow.value == OVERFLOW_SCROLL ? 2 : 0)) + "px";
 	else
 		aParent.style.maxHeight = "";
 
-	item = end - index + Math.floor(bfht.prefs.num.value > 1 ? bfht.prefs.num.value / 2 : 0) - 1;
-	if (item > count-1)
-		item = end-1;
+	item = (bfht.prefs.order.value ? end - index - 1 : index) + Math.floor(bfht.prefs.num.value > 1 ? bfht.prefs.num.value / 2 : 0);
+
+	if (item > count - 1)
+		item = (bfht.prefs.order.value ? end : start) - 1;
 
 	if (aParent.boxObject.firstChild)
-		try{aParent.boxObject.firstChild.ensureElementIsVisible(aParent.children[item])}catch(e){};
+		try{aParent.boxObject.firstChild.ensureElementIsVisible(aParent.children[item]);}catch(e){};
 
   return true;
 } //end FillHistoryMenu()
 
-			window.FillHistoryMenu = FillHistoryMenu;
-
-			if (type != "load" && reason != APP_STARTUP)
+			var FillHistoryMenuTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+			FillHistoryMenuTimer.init({observe: function()
+			{
+				_FillHistoryMenu = window.FillHistoryMenu;
+				window.FillHistoryMenu = FillHistoryMenu;
 				overflowInit()
+			}}, 500, Ci.nsITimer.TYPE_ONE_SHOT); //wait 0.5 sec for TMP finish patching FillHistoryMenu before we back it up and replace with ours
+			unload(FillHistoryMenuTimer.cancel, window);
+			_dump(window.onpopstate);
+listen(window, window, "popstate", function(event)
+{
+	_dump(1);
+	_dump(event, 1);
+}, true);
+
 
 			Services.obs.addObserver(overflowInit, "browser-delayed-startup-finished", false);
 			Services.obs.addObserver(addonOptionsDisplayed, "addon-options-displayed", false);
 			click_hold_context_menus.QueryInterface(Ci.nsIPrefBranch2).addObserver('', onPrefChangeScroll, false);
 			bfht.pref.QueryInterface(Ci.nsIPrefBranch2).addObserver('', onPrefChangeScroll, false);
+			if (bfht.prefs.version.value != addon.version)
+			{
+				bfht.pref.setCharPref("version", addon.version);
+				if (bfht.pref.getBoolPref("showChangesLog"))
+				{
+					var changesLogTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer)
+					changesLogTimer.init({observe: function()
+					{
+						showChangesLog();
+					}}, 0, changesLogTimer.TYPE_ONE_SHOT);
+					unload(changesLogTimer.cancel, window);
+				}
+			}
 			listen(window, window, "unload", cleanup, false);
 			unload(cleanup, window);
 		}, "navigator:browser"); //end watchWindows
@@ -533,48 +835,37 @@ function $(node, childId)
 
 function startup(data, reason)
 {
+	bfht.data = data;
+	bfht.reason = reason;
+	ADDON_ID = data.id;
 	include("includes/utils.js");
 	include("includes/l10n.js");
 	l10n(addon, "backforwardhistorytweaks.properties");
 	unload(l10n.unload);
 	loadStyles(addon, ["style"]);
-	bfht.init(reason);
+	AddonManager.getAddonByID(ADDON_ID, function(addon)
+	{
+		bfht.init(addon, reason);
+	});
 }
 
 function shutdown(data, reason)
 {
+	bfht.data = data;
+	bfht.reason = reason;
 	unload();
 }
 
-function install(data)
+function install(data, reason)
 {
+	bfht.data = data;
+	bfht.reason = reason;
 }
 
 function uninstall(data, reason)
 {
+	bfht.data = data;
+	bfht.reason = reason;
 	if (reason == ADDON_UNINSTALL)
-		(function deletePrefs(prefix)
-		{
-			let prefix = prefix || "",
-					pr, name = "", domain = "";
-			if (prefix)
-			{
-				pr = bfht.prefs[prefix];
-				domain = prefix + ".";
-			}
-			else
-			{
-				pr = bfht.prefs;
-			}
-			let branch = Services.prefs.getDefaultBranch(PREF_BRANCH);
-			for (let [key, val] in Iterator(pr))
-			{
-				name = domain + key;
-				if (val.type == "object")
-					deletePrefs(key);
-				else
-					branch.deleteBranch(name);
-
-			}
-		})();
+		Services.prefs.getDefaultBranch(PREF_BRANCH).deleteBranch('');
 }

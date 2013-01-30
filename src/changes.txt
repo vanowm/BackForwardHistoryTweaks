@@ -1,0 +1,27 @@
+Back/Forward History Tweaks Changes Log
+
+Legend:
+
++ = Added
+! = Fixed
+* = Changed
+- = Removed
+
+v1.1 (2013--)
+	+ bumped support for FF 14.0a1
+	+ added list order option
+	+ addon's description is now "rolled up" by default, makes it easier get to the options at the bottom of the page
+	+ in options with dropdown menu the default items are shown in bold
+	+ options reset button
+	* minimum allowed number in "Number of items to show" option is now set to 3, this should eliminate issues with scrollbar
+	* option "Number of items to show" now shows "All" when set to "0"
+	* option "Show number of total items" is now disabled if "Show item's index number" set to none
+	* in option "Oveflow control" the "Default" item renamed to "None"
+	! no title and description for changes log option on FF 13.0a1 and newer
+
+v1.0.1 (2012-02-28)
+	+ changes log
+	! incompatibility with Tab Mix Plus extension
+	
+v1.0 (2012-02-19)
+	Initial release

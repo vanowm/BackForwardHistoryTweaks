@@ -1,5 +1,12 @@
-menupopup[scrollbars="true"] autorepeatbutton {display: none;}
+menupopup[scrollbars="true"] autorepeatbutton
+{
+	display: none;
+}
 menupopup[scrollbars="true"] scrollbox
 {
 	overflow-y: auto !important;
+}
+menuitem[default="true"]
+{
+	font-weight: bold;
 }

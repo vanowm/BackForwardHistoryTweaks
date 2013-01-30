@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+
+<dialog	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+				title=""
+				onload="onload()"
+				buttons="none"
+				buttonlabelcancel="Close"
+				width="500"
+				height="400"
+				flex="1"
+				style="padding: 0"
+>
+	<script type="application/javascript">
+		<![CDATA[
+		function onload()
+		{
+			var aURL = window.baseUri + "../changes.txt";
+			var ioService = Components.classes["@mozilla.org/network/io-service;1"]
+												.getService(Components.interfaces.nsIIOService);
+			var scriptableStream = Components.classes["@mozilla.org/scriptableinputstream;1"]
+												.getService(Components.interfaces.nsIScriptableInputStream);
+
+			var channel = ioService.newChannel(aURL,null,null);
+			var input = channel.open();
+			scriptableStream.init(input);
+			var str = scriptableStream.read(input.available());
+			scriptableStream.close();
+			input.close();
+			str = str.replace(/\t/g, "    ");
+			var title = str.substr(0, str.indexOf("\n")-1);
+			str = str.replace(title, "").replace(/^\s+/g, "");
+			document.title = title;
+			document.getElementById("changesLog").value = str;
+			document.getElementById("changesLog").selectionStart = 0;
+			document.getElementById("changesLog").selectionEnd = 0;
+			if (!window.arguments)
+				document.getElementById("close").hidden = true;
+		}
+		]]>
+	</script>
+	<vbox flex="1">
+		<textbox id="changesLog" label="options.tab.changes;" flex="1" readonly="true" multiline="true" wrap="off" style="margin: 0; border: 1px solid ThreeDDarkShadow; font-family: 'courier new', 'times new roman', fixed, monospace;"/>
+	</vbox>
+	<hbox id="close" pack="end">
+		<button label="Close" oncommand="window.close()" style="margin: 5px" />
+		<resizer dir="bottomend"/>
+	</hbox>
+</dialog>
