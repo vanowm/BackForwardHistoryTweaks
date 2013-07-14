@@ -1,6 +1,6 @@
 const {classes: Cc, interfaces: Ci, utils: Cu} = Components,
+			VERSION = "1.0.1",
 			PREF_BRANCH = "extensions.backforwardhistorytweaks.",
-			ADDON_ID = "backforwardhistorytweaks@vano",
 			OVERFLOW_NONE = 0,
 			OVERFLOW_SCROLL = 1,
 			OVERFLOW_BUTTONS = 2,
@@ -15,8 +15,9 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components,
 			SHOW_URL = 1,
 			SHOW_TITLE_HOVER = 2,
 			SHOW_URL_HOVER = 3;
-
+var ADDON_ID;
 Cu.import("resource://gre/modules/Services.jsm");
+Cu.import("resource://gre/modules/AddonManager.jsm");
 
 var addon = {
 		getResourceURI: function(filePath) ({
@@ -25,6 +26,25 @@ var addon = {
 	}, self = this;
 
 var bfht = {
+	//load our global constants as a work around for TabMixPlus compability
+	VERSION: VERSION,
+	PREF_BRANCH: PREF_BRANCH,
+	ADDON_ID: ADDON_ID,
+	OVERFLOW_NONE: OVERFLOW_NONE,
+	OVERFLOW_SCROLL: OVERFLOW_SCROLL,
+	OVERFLOW_BUTTONS: OVERFLOW_BUTTONS,
+	INDEX_NONE: INDEX_NONE,
+	INDEX_BEFORE: INDEX_BEFORE,
+	INDEX_AFTER: INDEX_AFTER,
+	TOOLTIP_NONE: TOOLTIP_NONE,
+	TOOLTIP_NAME: TOOLTIP_NAME,
+	TOOLTIP_URL: TOOLTIP_URL,
+	TOOLTIP_BOTH: TOOLTIP_BOTH,
+	SHOW_TITLE: SHOW_TITLE,
+	SHOW_URL: SHOW_URL,
+	SHOW_TITLE_HOVER: SHOW_TITLE_HOVER,
+	SHOW_URL_HOVER: SHOW_URL_HOVER,
+
 	pref: Services.prefs.getBranch(PREF_BRANCH),
 	prefs: {
 		num: {default: 15, value: 15, type: "number", min: 0, max: 999}, //number of items in list
@@ -33,6 +53,8 @@ var bfht = {
 		showIndexTotal: {default: false, value: false, type: "boolean"}, //show number of total items in session history
 		showItem: {default: SHOW_TITLE, value: SHOW_TITLE, type: "number", min: 0, max: 3}, //show items as: 0 = title, 1 = url, 2 = title on hover, 3 = url on hover
 		tooltip: {default: TOOLTIP_NONE, value: TOOLTIP_NONE, type: "number", min: 0, max: 3}, //show website title and/or URL address in tooltip
+		version: {default: VERSION, value: VERSION, type: "string"},
+		showChangesLog: {default: true, value: true, type: "boolean"}, //show changes log after update
 	},
 	setDefaultPrefs: function(prefix)
 	{
@@ -134,7 +156,8 @@ var bfht = {
 		}
 	},
 
-	init: function(reason)
+
+	init: function(addon, reason)
 	{
 		this.setDefaultPrefs();
 		watchWindows(function(window, type)
@@ -144,12 +167,16 @@ var bfht = {
 
 			type = type || null;
 			var document = window.document,
-					_FillHistoryMenu = window.FillHistoryMenu,
+					_FillHistoryMenu = null,
 					menupopupClone = {},
 					XULBrowserWindow = window.XULBrowserWindow,
 					getWebNavigation = window.getWebNavigation,
 					gNavigatorBundle = window.gNavigatorBundle,
 					click_hold_context_menus = Services.prefs.getBranch('ui.click_hold_context_menus'),
+					showChangesLog = function()
+					{
+						window.openUILinkIn(addon.getResourceURI("changes.txt").spec, "tab");
+					},
 					onPrefChangeScroll = {
 						window: window,
 						document: document,
@@ -172,7 +199,7 @@ var bfht = {
 							if (aTopic != "addon-options-displayed" || aData != ADDON_ID)
 								return;
 
-							function fixSetting(node)
+							function settingFix(node, key)
 							{
 								//add menulist support for FF 7
 								if (Cc["@mozilla.org/xpcom/version-comparator;1"]
@@ -192,9 +219,9 @@ var bfht = {
 												node.firstChild.selectedIndex = pref.getIntPref(key);
 											},
 										};
-
 								node.setAttribute("type", "control");
-								node.firstChild.value = bfht.prefs[node.id.replace("bfht_", "")].value;
+								node.firstChild.value = bfht.prefs[key].value;
+
 								prefChanged.pref.QueryInterface(Ci.nsIPrefBranch2).addObserver(node.getAttribute("pref"), prefChanged, false);
 								listen(window, window, "unload", function()
 								{
@@ -207,18 +234,15 @@ var bfht = {
 								}, window);
 								listen(window, node.firstChild, "command", function (e)
 								{
-									bfht.pref.setIntPref(node.id.replace("bfht_", ""), e.target.value);
+									bfht.pref.setIntPref(key, e.target.value);
 								});
-							}
+							} //settingFix
 
-							for (let [key, val] in Iterator(bfht.prefs))
+							function settingInit(node, key)
 							{
-								var node = $(document, "bfht_" + key);
-								if (!node) continue;
-
 								if (node.getAttribute("type") == "menulist")
 								{
-									fixSetting(node);
+									settingFix(node, key);
 								}
 								node.setAttribute("title", _("options." + key));
 								if (_("options." + key + ".desc"))
@@ -227,14 +251,26 @@ var bfht = {
 								let i = 0;
 								while(node = $(document, "bfht_" + key + "_" + i))
 								{
-									node.setAttribute("label", _("options." + key + "." + i));
+									node.setAttribute(node.tagName == "label" ? "value" : "label", _("options." + key + "." + i));
 									i++;
 								}
 							}
+							for (let [key, val] in Iterator(bfht.prefs))
+							{
+								var node = $(document, "bfht_" + key);
+								if (!node)
+									continue;
+
+								settingInit(node, key);
+							}
+							$(document, "bfht_showChangesLog_button").appendChild(document.createTextNode(_("options.showChangesLog.button")));
+							$(document, "bfht_showChangesLog_button").className = "text-link";
+							$(document, "bfht_showChangesLog_button").removeAttribute("value");
+							listen(window, $(document, "bfht_showChangesLog_button"), "click", showChangesLog, false);
 							$(document, "bfht_num").setAttribute("min", bfht.prefs.num.min);
 							$(document, "bfht_num").setAttribute("max", bfht.prefs.num.max);
 
-							//menulist setting for FF 7 - 9
+							//fixing text wrap and adding menulist setting for FF 7 - 9
 							if (Cc["@mozilla.org/xpcom/version-comparator;1"]
 										.getService(Ci.nsIVersionComparator)
 										.compare(Cc["@mozilla.org/xre/app-info;1"]
@@ -247,9 +283,11 @@ var bfht = {
 								{
 									for (let [key, val] in Iterator(bfht.prefs))
 									{
-										let node = $(document, "bfht_" + key).boxObject.firstChild;
-										if (!node) continue;
+										let node = $(document, "bfht_" + key);
+										if (!node || !node.boxObject.firstChild)
+											continue;
 
+										node = node.boxObject.firstChild;
 										let desc = node.getElementsByClassName("preferences-description"),
 												title = node.getElementsByClassName("preferences-title");
 
@@ -348,6 +386,7 @@ var bfht = {
 			function cleanup()
 			{
 				//restore original function
+				delete window.bfht;
 				window.FillHistoryMenu = _FillHistoryMenu;
 				click_hold_context_menus.QueryInterface(Ci.nsIPrefBranch2).removeObserver('', onPrefChangeScroll);
 				bfht.pref.QueryInterface(Ci.nsIPrefBranch2).removeObserver('', onPrefChangeScroll, false);
@@ -373,6 +412,11 @@ function FillHistoryMenu(aParent) {
     aParent.hasStatusListener = true;
   }
 */
+	//TMP compatibility replaced all entry.title with tablib.menuItemTitle(entry)
+	function TMP_compat(e)
+	{
+		return "tablib" in window && "menuItemTitle" in window.tablib ? window.tablib.menuItemTitle(e) : e.title;
+	}
   // Remove old entries if any
   var children = aParent.childNodes;
   for (var i = children.length - 1; i >= 0; --i) {
@@ -389,7 +433,7 @@ function FillHistoryMenu(aParent) {
 	// We use height of menu item to determine final height of popup, and we need add height of an empty popup to it, because it might have margin/padding
 	var heightAdd = aParent.boxObject.height;
 	var num = "", numBefore = "", numAfter = "", maxHeight = "", itemCurrent = null;
-	const MAX_HISTORY_MENU_ITEMS = bfht.prefs.overflow.value != OVERFLOW_NONE || !bfht.prefs.num.value ? 999999 : bfht.prefs.num.value;
+	const MAX_HISTORY_MENU_ITEMS = bfht.prefs.overflow.value != bfht.OVERFLOW_NONE || !bfht.prefs.num.value ? 999999 : bfht.prefs.num.value;
 //  const MAX_HISTORY_MENU_ITEMS = 15;
   var index = sessionHistory.index;
   var half_length = Math.floor(MAX_HISTORY_MENU_ITEMS / 2);
@@ -405,8 +449,7 @@ function FillHistoryMenu(aParent) {
   var tooltipForward = gNavigatorBundle.getString("tabHistory.goForward");
 
   for (var j = end - 1; j >= start; j--) {
-//    let item = document.createElement("menuitem");
-		var item = document.createElement("menuitem");
+    let item = document.createElement("menuitem");
     let entry = sessionHistory.getEntryAtIndex(j, false);
     let uri = entry.URI.spec;
 
@@ -420,7 +463,22 @@ function FillHistoryMenu(aParent) {
                          .getService(Ci.nsIFaviconService)
                          .getFaviconForPage(entry.URI).spec;
         item.style.listStyleImage = "url(" + iconURL + ")";
-      } catch (ex) {}
+      } catch (ex)
+      {
+      	try
+      	{
+					let iconURL = Cc["@mozilla.org/browser/favicon-service;1"]
+						.getService(Ci.nsIFaviconService)
+						.QueryInterface(Ci.mozIAsyncFavicons);
+		      iconURL.getFaviconURLForPage(entry.URI, function (aURI) {
+		        if (aURI) {
+		          iconURL = iconURL.getFaviconLinkForIcon(aURI).spec;
+		          item.style.listStyleImage = "url(" + iconURL + ")";
+		        }
+		      });
+      	}
+      	catch(e){}
+      }
     }
 
 		let tooltip;
@@ -444,10 +502,10 @@ function FillHistoryMenu(aParent) {
 			num = count - (count - j) + 1;
 			switch (bfht.prefs.showIndex.value)
 			{
-				case INDEX_BEFORE:
+				case bfht.INDEX_BEFORE:
 						numBefore = "[" + num + total +"] ";
 					break;
-				case INDEX_AFTER:
+				case bfht.INDEX_AFTER:
 						numAfter = " [" + num + total + "]";
 					break;
 				default:
@@ -455,15 +513,15 @@ function FillHistoryMenu(aParent) {
 		}
 		switch (bfht.prefs.showItem.value)
 		{
-			case SHOW_TITLE:
-			case SHOW_TITLE_HOVER:
-					item._label = entry.title || uri;
+			case bfht.SHOW_TITLE:
+			case bfht.SHOW_TITLE_HOVER:
+					item._label = TMP_compat(entry) || uri;
 					item._label2 = uri;
 				break;
-			case SHOW_URL:
-			case SHOW_URL_HOVER:
+			case bfht.SHOW_URL:
+			case bfht.SHOW_URL_HOVER:
 					item._label = uri;
-					item._label2 = entry.title || uri;
+					item._label2 = TMP_compat(entry) || uri;
 				break;
 		}
 		item._label = numBefore + item._label + numAfter;
@@ -473,14 +531,14 @@ function FillHistoryMenu(aParent) {
 		let tt = tooltip;
 		switch (bfht.prefs.tooltip.value)
 		{
-			case TOOLTIP_URL:
+			case bfht.TOOLTIP_URL:
 					tt = uri;
 				break;
-			case TOOLTIP_NAME:
-					tt = entry.title || uri;
+			case bfht.TOOLTIP_NAME:
+					tt = TMP_compat(entry) || uri;
 				break;
-			case TOOLTIP_BOTH:
-					tt = (entry.title || tooltip) + "\n(" + uri + ")";
+			case bfht.TOOLTIP_BOTH:
+					tt = (TMP_compat(entry) || tooltip) + "\n(" + uri + ")";
 				break;
 		}
 		item.setAttribute("tooltiptext", tt);
@@ -488,6 +546,7 @@ function FillHistoryMenu(aParent) {
     aParent.appendChild(item);
   }
 
+  let item = aParent.lastChild;
 	if (bfht.prefs.num.value && end > bfht.prefs.num.value)
 		aParent.style.maxHeight = item.boxObject.height * bfht.prefs.num.value + heightAdd + "px";
 	else
@@ -503,7 +562,15 @@ function FillHistoryMenu(aParent) {
   return true;
 } //end FillHistoryMenu()
 
-			window.FillHistoryMenu = FillHistoryMenu;
+			// we need register bfht globaly in case another addon clones FillHistoryMenu function after we replaced with ours.
+			window.bfht = bfht;
+			var FillHistoryMenuTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer)
+			FillHistoryMenuTimer.init({observe: function()
+			{
+				_FillHistoryMenu = window.FillHistoryMenu;
+				window.FillHistoryMenu = FillHistoryMenu;
+			}}, 500, Ci.nsITimer.TYPE_ONE_SHOT); //wait 0.5 sec for TMP finish patching FillHistoryMenu before we back it up and replace with ours
+			unload(FillHistoryMenuTimer.cancel, window);
 
 			if (type != "load" && reason != APP_STARTUP)
 				overflowInit()
@@ -512,6 +579,20 @@ function FillHistoryMenu(aParent) {
 			Services.obs.addObserver(addonOptionsDisplayed, "addon-options-displayed", false);
 			click_hold_context_menus.QueryInterface(Ci.nsIPrefBranch2).addObserver('', onPrefChangeScroll, false);
 			bfht.pref.QueryInterface(Ci.nsIPrefBranch2).addObserver('', onPrefChangeScroll, false);
+			var version = bfht.pref.getCharPref("version");
+			if (version != addon.version)
+			{
+				bfht.pref.setCharPref("version", addon.version);
+				if (bfht.pref.getBoolPref("showChangesLog"))
+				{
+					var changesLogTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer)
+					changesLogTimer.init({observe: function()
+					{
+						showChangesLog();
+					}}, 0, changesLogTimer.TYPE_ONE_SHOT);
+					unload(changesLogTimer.cancel, window);
+				}
+			}
 			listen(window, window, "unload", cleanup, false);
 			unload(cleanup, window);
 		}, "navigator:browser"); //end watchWindows
@@ -533,12 +614,16 @@ function $(node, childId)
 
 function startup(data, reason)
 {
+	ADDON_ID = data.id;
 	include("includes/utils.js");
 	include("includes/l10n.js");
 	l10n(addon, "backforwardhistorytweaks.properties");
 	unload(l10n.unload);
 	loadStyles(addon, ["style"]);
-	bfht.init(reason);
+	AddonManager.getAddonByID(ADDON_ID, function(addon)
+	{
+		bfht.init(addon, reason);
+	});
 }
 
 function shutdown(data, reason)

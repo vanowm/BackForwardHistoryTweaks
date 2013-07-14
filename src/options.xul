@@ -40,4 +40,7 @@
 			</menupopup>
 		</menulist>
 	</setting>
+	<setting id="bfht_showChangesLog" type="bool" pref="extensions.backforwardhistorytweaks.showChangesLog">
+		<label id="bfht_showChangesLog_button"/>
+	</setting>
 </vbox>

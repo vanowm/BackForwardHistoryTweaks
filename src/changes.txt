@@ -1,0 +1,15 @@
+Back/Forward History Tweaks Changes Log
+
+Legend:
+
++ = Added
+! = Fixed
+* = Changed
+- = Removed
+
+v1.0.1 (2012-02-28)
+	+ changes log
+	! incompatibility with Tab Mix Plus extension
+	
+v1.0 (2012-02-19)
+	Initial release
