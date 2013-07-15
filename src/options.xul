@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-	<setting id="bfht_num" type="integer" pref="extensions.backforwardhistorytweaks.num"/>
+	<setting id="bfht_num" type="integer" pref="extensions.backforwardhistorytweaks.num" flex="0" size="10"/>
 	<setting id="bfht_overflow" type="menulist" pref="extensions.backforwardhistorytweaks.overflow">
 		<menulist crop="none">
 			<menupopup>
@@ -40,7 +40,19 @@
 			</menupopup>
 		</menulist>
 	</setting>
-	<setting id="bfht_showChangesLog" type="bool" pref="extensions.backforwardhistorytweaks.showChangesLog">
-		<label id="bfht_showChangesLog_button"/>
+	<setting id="bfht_order" type="menulist" pref="extensions.backforwardhistorytweaks.order">
+		<menulist crop="none">
+			<menupopup>
+				<menuitem id="bfht_order_0" value="0"/>
+				<menuitem id="bfht_order_1" value="1"/>
+			</menupopup>
+		</menulist>
+	</setting>
+<!--	<setting id="bfht_combine" type="bool" pref="extensions.backforwardhistorytweaks.combine"/>-->
+	<setting id="bfht_showChangesLog" type="bool" pref="extensions.backforwardhistorytweaks.showChangesLog"/>
+	<setting id="bfht_reset" type="control"/>
+	<setting collapsed="true">
+		<label id="bfht_reset_button" class="text-link"/>
+		<label id="bfht_showChangesLog_button" class="text-link"/>
 	</setting>
 </vbox>

@@ -42,9 +42,9 @@ var l10n = (function(global) {
   }
 
   function l10n(addon, filename, defaultLocale) {
-    defaultLocale = defaultLocale || "en";
+    defaultLocale = defaultLocale || "en-US";
     function filepath(locale) addon
-        .getResourceURI("locale/" + locale + "/" + filename).spec
+        .getResourceURI("chrome/locale/" + locale + "/" + filename).spec
 
     let defaultBundle = Services.strings.createBundle(filepath(locale));
 

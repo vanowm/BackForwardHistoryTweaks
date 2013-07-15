@@ -1,0 +1,450 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+<?xml-stylesheet href="chrome://bfht/skin/changes.css" type="text/css"?>
+
+<!DOCTYPE bindings [
+	<!ENTITY % bfhtDTD SYSTEM "chrome://bfht/locale/backforwardhistorytweaks.dtd" >
+	%bfhtDTD;
+	<!ENTITY % textcontextDTD SYSTEM "chrome://global/locale/textcontext.dtd" >
+	%textcontextDTD;
+]>
+
+<dialog	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+				id="bfhtChangesWindow"
+				title=""
+				onload="bfht.onload()"
+				buttons="accept"
+				buttoniconaccept="close"
+				width="520"
+				height="400"
+				flex="1"
+>
+	<hbox align="center">
+		<label id="bfhtTitle" value="&bfht.about.changes;" class="title"/>
+		<vbox id="bfhtSupport" flex="1" align="start" pack="center">
+			<description flex="1" align="start" pack="center">
+				&bfht.about.support;
+				<label	id="supportSite"
+								class="text-link link"
+								context="bfhtLink"
+								onmouseover="bfht.mouseOver(event)"
+								onmouseout="bfht.mouseOut(event)"
+				>
+					&bfht.about.support.website;
+				</label>
+				&bfht.about.support.via;
+				<label	id="supportEmail"
+								class="text-link link"
+								context="bfhtLink"
+								onmouseover="bfht.mouseOver(event)"
+								onmouseout="bfht.mouseOut(event)"
+				>
+					&bfht.about.support.email;
+				</label>
+			</description>
+		</vbox>
+		<hbox flex="1" pack="end">
+			<button type="menu" id="bfhtMenu" label="Options">
+				<panel id="bfhtOptions" position="after_end">
+					<vbox>
+						<checkbox id="bfhtHightlight" label="Hightlight" value="1" persist="value" oncommand="bfht.highlight(event);"/>
+						<checkbox id="bfhtWrap" label="Wrap" value="1" persist="value" oncommand="bfht.wrap(event);"/>
+						<checkbox id="bfhtShowChangesLog" label="Show updates" oncommand="bfht.changesLog(event);" tooltiptext="Show this changes log after each update"/>
+					</vbox>
+				</panel>
+			</button>
+		</hbox>
+	</hbox>
+	<vbox id="bfhtChangesLogBox" flex="1">
+		<hbox flex="1">
+			<vbox id="bfhtChangesLog" flex="1" context="bfhtContext"/>
+		</hbox>
+	</vbox>
+	<popupset>
+		<menupopup id="bfhtLink" oncommand="bfht.copy(event);">
+			<menuitem label="&copyCmd.label;" accesskey="&copyCmd.accesskey;"/>
+		</menupopup>
+		<menupopup id="bfhtContext" oncommand="bfht.context(event);" onpopupshowing="bfht.popup(event)">
+			<menuitem id="bfhtCopy" label="&copyCmd.label;" accesskey="&copyCmd.accesskey;"/>
+			<menuseparator/>
+			<menuitem id="bfhtSelectAll" label="&selectAllCmd.label;" accesskey="&selectAllCmd.accesskey;"/>
+		</menupopup>
+	</popupset>
+	<script type="application/javascript">
+		<![CDATA[
+	const {classes: Cc, interfaces: Ci, utils: Cu} = Components,
+		EMAIL = "support.back-forward-history-tweaks.unique2ks3@vano.org",
+		HOMEPAGE = "http://goo.gl/Lng5i",
+		SUPPORTSITE = "http://goo.gl/5aV2w";
+Cu.import("resource://gre/modules/Services.jsm");
+Cu.import("resource://gre/modules/AddonManager.jsm");
+		var bfht = {
+			appInfo: Cc["@mozilla.org/xre/app-info;1"]
+								.getService(Ci.nsIXULAppInfo),
+			appInfo2: Cc["@mozilla.org/xre/app-info;1"]
+								.getService(Ci.nsIXULRuntime),
+			app: null,
+			pref: Services.prefs.getBranch("extensions.backforwardhistorytweaks."),
+			prefChangesLog: false,
+
+			mouseOver: function(e)
+			{
+				let status = "XULBrowserWindow" in bfht.rootWin ? bfht.rootWin.XULBrowserWindow : null,
+						txt = e.target.getAttribute("link");
+				if (status)
+				{
+					status.overLink = txt;
+					try
+					{
+						rootWin.LinkTargetDisplay.update();
+					}
+					catch(e)
+					{
+						status.updateStatusField();
+					}
+				}
+				else
+				{
+					status = bfht.rootDoc.getElementById("statusText");
+					if (!status)
+						return;
+					status.setAttribute("label", txt);
+				}
+			},
+
+			mouseOut: function(e)
+			{
+				let status = "XULBrowserWindow" in bfht.rootWin ? bfht.rootWin.XULBrowserWindow : null;
+				if (status)
+				{
+					status.overLink = "";
+					try
+					{
+						rootWin.LinkTargetDisplay.update();
+					}
+					catch(e)
+					{
+						status.updateStatusField();
+					}
+				}
+				else
+				{
+					status = bfht.rootDoc.getElementById("statusText");
+					if (!status)
+						return;
+					status.setAttribute("label", "");
+				}
+			},
+			copy: function(e)
+			{
+				Components.classes["@mozilla.org/widget/clipboardhelper;1"]
+					.getService(Components.interfaces.nsIClipboardHelper)
+					.copyString(document.popupNode.getAttribute("link"));
+			},
+
+			context: function(e)
+			{
+				let sel = window.getSelection();
+				if (e.originalTarget.id == "bfhtCopy")
+				{
+					if (sel.rangeCount > 0)
+					{
+						let txt = sel.getRangeAt(0).toString();
+						Components.classes["@mozilla.org/widget/clipboardhelper;1"]
+						.getService(Components.interfaces.nsIClipboardHelper)
+						.copyString(txt);
+					}
+				}
+				else if (e.originalTarget.id == "bfhtSelectAll")
+				{
+					sel.removeAllRanges();
+					document.getElementById("bfhtChangesLog").focus();
+					sel.selectAllChildren(document.getElementById("bfhtChangesLog"));
+				}
+			},
+	
+			popup: function(e)
+			{
+				let txt = window.getSelection().toString();
+				if (txt)
+					document.getElementById("bfhtCopy").removeAttribute("disabled");
+				else
+					document.getElementById("bfhtCopy").setAttribute("disabled", true);
+			},
+	
+			highlight: function(e)
+			{
+				let val = Number(document.getElementById("bfhtHightlight").getAttribute("value"))+1;
+				if (val > 2 || val < 0)
+					val = 0;
+				document.getElementById("bfhtHightlight").setAttribute("value", val);
+				this.showHighlight();
+			},
+	
+			showHighlight: function()
+			{
+				let c = document.getElementById("bfhtHightlight");
+				let val = Number(c.getAttribute("value"));
+				if (val == 1)
+				{
+					c.setAttribute("checked", true);
+					c.setAttribute("indeterminate", true);
+				}
+				else if (val == 2)
+				{
+					c.setAttribute("checked", true);
+					c.removeAttribute("indeterminate");
+				}
+				else
+				{
+					c.removeAttribute("checked");
+					c.removeAttribute("indeterminate");
+				}
+				document.getElementById("bfhtChangesLog").setAttribute("highlight", val)
+			},
+	
+			wrap: function(e)
+			{
+				let val = Number(document.getElementById("bfhtWrap").getAttribute("value"))+1;
+				if (val > 1 || val < 0)
+					val = 0;
+	
+				document.getElementById("bfhtWrap").setAttribute("value", val);
+				this.showWrap();
+			},
+	
+			showWrap: function()
+			{
+				let c = document.getElementById("bfhtWrap"),
+						b = document.getElementById("bfhtChangesLog");
+				let val = Number(c.getAttribute("value"));
+				if (val == 1)
+				{
+					c.setAttribute("checked", true);
+					b.setAttribute("flex", 1);
+					b.parentNode.setAttribute("flex", 1);
+				}
+				else
+				{
+					c.removeAttribute("checked");
+					b.setAttribute("flex", 0);
+					b.parentNode.setAttribute("flex", 0);
+				}
+				document.getElementById("bfhtChangesLog").setAttribute("wrap", val)
+				this.onResize();
+			},
+	
+			changesLog: function(e)
+			{
+				
+				this.prefChangesLog = !this.prefChangesLog;
+				this.pref.setBoolPref("showChangesLog", this.prefChangesLog);
+				this.showChangesLog();
+			},
+	
+			showChangesLog: function()
+			{
+				let c = document.getElementById("bfhtShowChangesLog")
+				if (this.prefChangesLog)
+				{
+					c.setAttribute("checked", true);
+				}
+				else
+				{
+					c.removeAttribute("checked");
+				}
+			},
+	
+			onResize: function ()
+			{
+				let hbox = document.getElementsByAttribute("line", ""),
+						height = document.getElementById("bfhtChangesLog").firstChild.boxObject.height;
+				for(let i = 0; i < hbox.length; i++)
+				{
+					if (hbox[i].boxObject.height - height > height / 2)
+						hbox[i].setAttribute("wrapped", "");
+					else
+						hbox[i].removeAttribute("wrapped")
+				}
+			},
+
+			onload: function()
+			{
+				try
+				{
+					AddonManager.getAddonByID("backforwardhistorytweaks@vano", function(app)
+					{
+						bfht.app = app;
+						bfht.init();
+					});
+				}
+				catch (e)
+				{
+					this.app = Cc["@mozilla.org/extensions/manager;1"]
+												.getService(Ci.nsIExtensionManager)
+												.getItemForID("backforwardhistorytweaks@vano");
+					this.init();
+				}
+			},
+
+			fixUrl: function(url)
+			{
+				let tags = {
+							OS: this.appInfo2.OS + " (" + this.appInfo2.XPCOMABI + ")",
+							VER: this.app.version,
+							APP: this.appInfo.name + " " + this.appInfo.version,
+						}
+				let reg = new RegExp("\{([A-Z]+)\}", "gm");
+				url = url.replace(reg, function(a, b, c, d)
+				{
+					if (b in tags)
+						return " " + tags[b];
+					return a;
+				});
+				return url;
+			},
+
+			init: function()
+			{
+				let addon = {
+						getResourceURI: function(filePath) ({
+							spec: bfht.app.optionsURL + "/../" + filePath
+						})};
+				let changesLog = document.getElementById("bfhtChangesLog"),
+						aURL = addon.getResourceURI("changes.txt").spec,
+						utf8Converter = Components.classes["@mozilla.org/intl/utf8converterservice;1"]
+															.getService(Components.interfaces.nsIUTF8ConverterService),
+						ioService = Components.classes["@mozilla.org/network/io-service;1"]
+													.getService(Components.interfaces.nsIIOService),
+						scriptableStream = Components.classes["@mozilla.org/scriptableinputstream;1"]
+													.getService(Components.interfaces.nsIScriptableInputStream),
+						channel = ioService.newChannel(aURL,null,null),
+						array,
+						title;
+				this.prefChangesLog = this.pref.getBoolPref("showChangesLog");
+				document.title = this.app.name + " " + document.getElementById("bfhtTitle").value;
+				document.getElementById("bfhtTitle").value = document.title;
+		
+				this.rootWin =  window.QueryInterface(Components.interfaces.nsIInterfaceRequestor)
+														.getInterface(Components.interfaces.nsIWebNavigation)
+														.QueryInterface(Components.interfaces.nsIDocShellTreeItem)
+														.rootTreeItem
+														.QueryInterface(Components.interfaces.nsIInterfaceRequestor)
+														.getInterface(Components.interfaces.nsIDOMWindow);
+				this.rootDoc = this.rootWin.document;
+				let sup = document.getElementById("supportSite");
+				sup.setAttribute("href", SUPPORTSITE);
+				sup.setAttribute("link", SUPPORTSITE);
+				sup.setAttribute("tooltiptext", SUPPORTSITE);
+				sup = document.getElementById("supportEmail");
+				sup.setAttribute("href", this.fixUrl("mailto:Back/Forward History Tweaks support<" + EMAIL + ">?subject=Back%2FForward%20History%20Tweaks%20support&body=%0A%0AOS:{OS}%0AApp:{APP}%0AADDON:{VER}"));
+				sup.setAttribute("link", EMAIL);
+				sup.setAttribute("tooltiptext", EMAIL);
+				changesLog.setAttribute("highlight", document.getElementById("bfhtHightlight").getAttribute("value"));
+				changesLog.setAttribute("wrap", document.getElementById("bfhtWrap").getAttribute("value"));
+				let input = channel.open();
+				scriptableStream.init(input);
+				let str = scriptableStream.read(input.available());
+				scriptableStream.close();
+				input.close();
+				str = utf8Converter.convertURISpecToUTF8 (str, "UTF-8");
+				str = str.replace(/\t/g, "  ");
+				title = str.substr(0, str.indexOf("\n")-1);
+				str = str.replace(title, "").replace(/^\s+/g, "");
+				array = str.split("\n");
+				let prevhbox = null;
+				for(let i = 0; i < array.length; i++)
+				{
+					let t = /^(\s*)([+\-*!])/.exec(array[i]),
+							tab = document.createElement("description"),
+							type = document.createElement("description"),
+							label = document.createElement("description"),
+							hbox = document.createElement("hbox"),
+							vbox = document.createElement("vbox"),
+							txt = 0;
+					if (i > 0)
+						changesLog.appendChild(document.createTextNode("\n"));
+	
+					vbox.className = "text";
+					hbox.setAttribute("flex", 0);
+					vbox.setAttribute("flex", 1);
+					type.className = "type";
+					tab.className = "tab";
+					hbox.setAttribute("line", "");
+					if (t)
+					{
+						tab.textContent = t[1];
+						type.textContent = t[2];
+						let s = "";
+						switch(t[2])
+						{
+							case "+":
+								s = "added";
+								break;
+							case "-":
+								s = "removed";
+								break;
+							case "!":
+								s = "fixed";
+								break;
+							case "*":
+								s = "changed";
+								break;
+						}
+						if (s)
+						{
+	//						tab.className = s;
+							type.className += " " + s;
+							hbox.className = s;
+						}
+						hbox.appendChild(tab);
+						hbox.appendChild(type);
+						txt = t[1].length + 1;
+						if (t[1])
+						{
+							type.className += " border";
+							tab.className += " border";
+							label.className += " border";
+						}
+					}
+					else if (array[i].match(/^v[0-9]/))
+					{
+						if (prevhbox)
+						{
+							prevhbox.className += " last";
+							hbox.className = "titlelog";
+						}
+						else
+						{
+							prevhbox = true;
+							hbox.className = "titlelog";
+						}
+					}
+					if (array[i].length > 1 && prevhbox !== null)
+						prevhbox = hbox;
+	
+					label.textContent = array[i].substr(txt).trim();
+					vbox.appendChild(label)
+					hbox.appendChild(vbox);
+					changesLog.appendChild(hbox);
+				}
+				changesLog.selectionStart = 0;
+				changesLog.selectionEnd = 0;
+				if (!("arguments" in window) || !window.arguments)
+					document.documentElement._buttons.accept.hidden = true;
+				else
+				{
+					document.documentElement.boxObject.lastChild.insertBefore(document.getElementById("bfhtSupport"), document.documentElement.boxObject.lastChild.firstChild);
+					document.getElementById("bfhtTitle").parentNode.setAttribute("align", "center");
+					document.getElementById("bfhtChangesLogBox").setAttribute("window", true);
+				}
+	
+				this.showHighlight();
+				this.showWrap();
+				this.showChangesLog();
+				window.addEventListener("resize", this.onResize, true);
+			}
+		};
+	]]>
+	</script>
+</dialog>

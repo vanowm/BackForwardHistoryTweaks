@@ -7,6 +7,20 @@ Legend:
 * = Changed
 - = Removed
 
+v1.1 (2013-07-15)
+	+ added list order option
+	+ addon's description is now "rolled up" by default, makes it easier get to the options at the bottom of the page
+	+ in options with dropdown menu the default items are shown in bold
+	+ options reset button
+	* minimum allowed number in "Number of items to show" option is now set to 3, this should eliminate issues with scrollbar
+	* option "Number of items to show" now shows "All" when set to "0"
+	* in option "Oveflow control" the "Default" item renamed to "None"
+	! sites fav icons didn't show in the back/forward list
+	! input field size in options
+	! only max of 50 items would show in the dropdown regardless of settings
+	! issues with displaying "show changes log" option, also now log can be opened by clicking on that option title
+	- "(restartless)" from the name
+
 v1.0.1 (2012-02-28)
 	+ changes log
 	! incompatibility with Tab Mix Plus extension

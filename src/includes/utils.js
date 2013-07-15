@@ -113,7 +113,7 @@ getString.init = function(addon, getAlternate) {
 
   // Get the bundled properties file for the app's locale
   function getBundle(locale) {
-    let propertyPath = "locales/" + locale + ".properties";
+    let propertyPath = "chrome/locale/" + locale + ".properties";
     let propertyFile = addon.getResourceURI(propertyPath);
 
     // Get a bundle and test if it's able to do simple things
@@ -179,7 +179,7 @@ function loadStyles(addon, styles) {
   let ios = Components.classes["@mozilla.org/network/io-service;1"]
                   .getService(Components.interfaces.nsIIOService);
   styles.forEach(function(fileName) {
-    let fileURI = addon.getResourceURI("styles/" + fileName + ".css");
+    let fileURI = addon.getResourceURI("chrome/skin/classic/" + fileName + ".css");
 		fileURI = ios.newURI(fileURI.spec, null, null);
     sss.loadAndRegisterSheet(fileURI, sss.USER_SHEET);
     unload(function() sss.unregisterSheet(fileURI, sss.USER_SHEET));

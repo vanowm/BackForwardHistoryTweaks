@@ -1,0 +1,129 @@
+#bfhtChangesWindow
+{
+	padding: 0;
+}
+#bfhtChangesWindow,
+#bfhtChangesWindow *
+{
+	-moz-user-select: text;
+}
+#bfhtChangesLogBox
+{
+	margin: 0;
+	border: 0;
+	border-top: 1px solid ThreeDDarkShadow;
+	font-family: 'courier new', 'times new roman', fixed, monospace;
+	padding: 1.2em;
+	overflow: auto;
+}
+
+#bfhtChangesLogBox[window]
+{
+	border-bottom: 1px solid ThreeDDarkShadow;
+}
+
+#bfhtChangesLog,
+#bfhtChangesLog *
+{
+	-moz-user-focus: normal;
+	cursor: text;
+}
+#bfhtChangesLog *
+{
+	padding: 0;
+	margin: 0;
+	white-space: pre-wrap;
+	text-align: left;
+}
+#bfhtChangesLog > hbox
+{
+	padding: 1px 0 1px 0;
+	margin-top: 1px;
+}
+
+.title,
+.titlelog
+{
+	font-weight: bold;
+	font-size: 1em;
+}
+.link
+{
+	margin:0;
+}
+
+#bfhtChangesLog > hbox.added > vbox > description,
+#bfhtChangesLog > hbox.removed > vbox > description,
+#bfhtChangesLog > hbox.changed > vbox > description,
+#bfhtChangesLog > hbox.fixed > vbox > description
+{
+	padding-left: 5px;
+}
+
+.last
+{
+	border-bottom: 1px solid ThreeDShadow;
+}
+
+#bfhtChangesLog[flex="1"]:not([highlight="2"]) hbox:not(.last)[wrapped] .border
+{
+	border-bottom: 1px dotted ThreeDShadow;
+}
+#bfhtChangesLog:not([highlight="2"]) hbox:not(.last)[wrapped] .border.tab,
+#bfhtChangesLog hbox:not(.last)[wrapped] .border
+{
+	border-bottom: 1px dotted transparent;
+}
+
+#bfhtChangesLog hbox:not(.last)
+{
+	margin-bottom: 0 !important;
+	padding-bottom: 0 !important;
+}
+
+.titlelog
+{
+	margin-top: 1em !important;
+}
+
+#bfhtSupport
+{
+	min-width: 18.5em;
+}
+#bfhtSupport,
+#bfhtSupport *
+{
+	font-style: italic;
+}
+.type
+{
+/*
+	font-weight: bold;
+*/
+}
+#bfhtChangesLog[highlight="2"] .added,
+#bfhtChangesLog[highlight="1"] description.added
+{
+	background-color: #C9F5C9;
+}
+#bfhtChangesLog[highlight="2"] .removed,
+#bfhtChangesLog[highlight="1"] description.removed
+{
+	background-color: #FFBFBF;
+}
+#bfhtChangesLog[highlight="2"] .changed,
+#bfhtChangesLog[highlight="1"] description.changed
+{
+	background-color: #BFEEFF;
+}
+#bfhtChangesLog[highlight="2"] .fixed,
+#bfhtChangesLog[highlight="1"] description.fixed
+{
+	background-color: #FFFFBF;
+}
+
+#bfhtMenu
+{
+	cursor: pointer;
+	list-style-image: none;
+}

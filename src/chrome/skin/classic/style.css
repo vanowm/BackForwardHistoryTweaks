@@ -6,7 +6,11 @@ menupopup[scrollbars="true"] scrollbox
 {
 	overflow-y: auto !important;
 }
-#bfht_showChangesLog_button
+#bfht_showChangesLog .preferences-title
 {
-	cursor: pointer;
+	cursor: pointer !important;
+}
+menuitem[default="true"]
+{
+	font-weight: bold;
 }
