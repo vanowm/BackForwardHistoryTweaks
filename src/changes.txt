@@ -7,6 +7,12 @@ Legend:
 * = Changed
 - = Removed
 
+v1.1.1 (2014-09-27)
+	+ changes log can be access from options
+	+ links to support website/email in addon's options
+	* misspellings in options
+	! only 10 history items restored after undo closed tab (CTRL + SHIFT + T)
+
 v1.1 (2013-07-15)
 	+ added list order option
 	+ addon's description is now "rolled up" by default, makes it easier get to the options at the bottom of the page

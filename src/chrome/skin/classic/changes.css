@@ -1,13 +1,13 @@
-#bfhtChangesWindow
+#bfhtChangesLogWindow
 {
 	padding: 0;
 }
-#bfhtChangesWindow,
-#bfhtChangesWindow *
+#bfhtChangesLogWindow,
+#bfhtChangesLogWindow *
 {
 	-moz-user-select: text;
 }
-#bfhtChangesLogBox
+#changesLogBox
 {
 	margin: 0;
 	border: 0;
@@ -17,25 +17,25 @@
 	overflow: auto;
 }
 
-#bfhtChangesLogBox[window]
+#changesLogBox[window]
 {
 	border-bottom: 1px solid ThreeDDarkShadow;
 }
 
-#bfhtChangesLog,
-#bfhtChangesLog *
+#changesLog,
+#changesLog *
 {
 	-moz-user-focus: normal;
 	cursor: text;
 }
-#bfhtChangesLog *
+#changesLog *
 {
 	padding: 0;
 	margin: 0;
 	white-space: pre-wrap;
 	text-align: left;
 }
-#bfhtChangesLog > hbox
+#changesLog > hbox
 {
 	padding: 1px 0 1px 0;
 	margin-top: 1px;
@@ -52,10 +52,10 @@
 	margin:0;
 }
 
-#bfhtChangesLog > hbox.added > vbox > description,
-#bfhtChangesLog > hbox.removed > vbox > description,
-#bfhtChangesLog > hbox.changed > vbox > description,
-#bfhtChangesLog > hbox.fixed > vbox > description
+#changesLog > hbox.added > vbox > description,
+#changesLog > hbox.removed > vbox > description,
+#changesLog > hbox.changed > vbox > description,
+#changesLog > hbox.fixed > vbox > description
 {
 	padding-left: 5px;
 }
@@ -65,17 +65,17 @@
 	border-bottom: 1px solid ThreeDShadow;
 }
 
-#bfhtChangesLog[flex="1"]:not([highlight="2"]) hbox:not(.last)[wrapped] .border
+#changesLog[flex="1"]:not([highlight="2"]) hbox:not(.last)[wrapped] .border
 {
 	border-bottom: 1px dotted ThreeDShadow;
 }
-#bfhtChangesLog:not([highlight="2"]) hbox:not(.last)[wrapped] .border.tab,
-#bfhtChangesLog hbox:not(.last)[wrapped] .border
+#changesLog:not([highlight="2"]) hbox:not(.last)[wrapped] .border.tab,
+#changesLog hbox:not(.last)[wrapped] .border
 {
 	border-bottom: 1px dotted transparent;
 }
 
-#bfhtChangesLog hbox:not(.last)
+#changesLog hbox:not(.last)
 {
 	margin-bottom: 0 !important;
 	padding-bottom: 0 !important;
@@ -86,12 +86,12 @@
 	margin-top: 1em !important;
 }
 
-#bfhtSupport
+#changesLogSupport
 {
 	min-width: 18.5em;
 }
-#bfhtSupport,
-#bfhtSupport *
+#changesLogSupport,
+#changesLogSupport *
 {
 	font-style: italic;
 }
@@ -101,28 +101,28 @@
 	font-weight: bold;
 */
 }
-#bfhtChangesLog[highlight="2"] .added,
-#bfhtChangesLog[highlight="1"] description.added
+#changesLog[highlight="2"] .added,
+#changesLog[highlight="1"] description.added
 {
 	background-color: #C9F5C9;
 }
-#bfhtChangesLog[highlight="2"] .removed,
-#bfhtChangesLog[highlight="1"] description.removed
+#changesLog[highlight="2"] .removed,
+#changesLog[highlight="1"] description.removed
 {
 	background-color: #FFBFBF;
 }
-#bfhtChangesLog[highlight="2"] .changed,
-#bfhtChangesLog[highlight="1"] description.changed
+#changesLog[highlight="2"] .changed,
+#changesLog[highlight="1"] description.changed
 {
 	background-color: #BFEEFF;
 }
-#bfhtChangesLog[highlight="2"] .fixed,
-#bfhtChangesLog[highlight="1"] description.fixed
+#changesLog[highlight="2"] .fixed,
+#changesLog[highlight="1"] description.fixed
 {
 	background-color: #FFFFBF;
 }
 
-#bfhtMenu
+#changesLogMenu
 {
 	cursor: pointer;
 	list-style-image: none;

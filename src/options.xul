@@ -1,5 +1,7 @@
 <?xml version="1.0"?>
+<!DOCTYPE bindings SYSTEM "chrome://global/locale/textcontext.dtd">
 <vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+	<setting type="control"/>
 	<setting id="bfht_num" type="integer" pref="extensions.backforwardhistorytweaks.num" flex="0" size="10"/>
 	<setting id="bfht_overflow" type="menulist" pref="extensions.backforwardhistorytweaks.overflow">
 		<menulist crop="none">
@@ -50,9 +52,16 @@
 	</setting>
 <!--	<setting id="bfht_combine" type="bool" pref="extensions.backforwardhistorytweaks.combine"/>-->
 	<setting id="bfht_showChangesLog" type="bool" pref="extensions.backforwardhistorytweaks.showChangesLog"/>
+	<setting id="bfht_support" type="control"/>
 	<setting id="bfht_reset" type="control"/>
+
+<!-- all other objects that will be moved to proper places later -->
 	<setting collapsed="true">
-		<label id="bfht_reset_button" class="text-link"/>
-		<label id="bfht_showChangesLog_button" class="text-link"/>
+		<button id="bfht_reset_button"/>
+		<label id="bfht_homepage" class="text-link childlabel"/>
+		<label id="bfht_support_website" class="text-link childlabel"/>
+		<label id="bfht_support_email" class="text-link childlabel"/>
+		<label id="bfht_showChangesLog_button" class="text-link childlabel"/>
+		<menuitem id="bfht_copy" label="&copyCmd.label;" accesskey="&copyCmd.accesskey;"/>
 	</setting>
 </vbox>

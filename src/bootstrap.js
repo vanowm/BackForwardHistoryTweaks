@@ -14,17 +14,12 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components,
 			SHOW_URL = 1,
 			SHOW_TITLE_HOVER = 2,
 			SHOW_URL_HOVER = 3;
-var ADDON_ID;
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/AddonManager.jsm");
-
-var addon = {
-		getResourceURI: function(filePath) ({
-			spec: __SCRIPT_URI_SPEC__ + "/../" + filePath
-		})
-	}, self = this;
-
-var bfht = {
+var ADDON_ID,
+	addon = {},
+	self = this,
+	bfht = {
 	//load our global constants as a work around for TabMixPlus compability
 	PREF_BRANCH: PREF_BRANCH,
 	ADDON_ID: ADDON_ID,
@@ -57,6 +52,7 @@ var bfht = {
 		showChangesLog: {default: true, value: true}, //show changes log after update
 	},
 	browser_sessionhistory_max_entries: 50,
+	max_serialize_back: null,
 	setDefaultPrefs: function(reset)
 	{
 		let obj = bfht.prefs,
@@ -182,20 +178,62 @@ var bfht = {
 			}
 			changeObject("value", val, obj);
 		}
-	},
+	}, //onPrefChange()
 
-	init: function(addon, reason)
+	fixUrl: function(url)
+	{
+		let tags = {
+					OS: escape(Services.appinfo.OS + " (" + Services.appinfo.XPCOMABI + ")"),
+					VER: escape(addon.version),
+					APP: escape(Services.appinfo.name + " " + Services.appinfo.version),
+					EMAIL: escape(this.decode(EMAIL)),
+					NAME: escape(addon.name),
+					EMAILRAW: this.decode(EMAIL),
+					NAMERAW: addon.name
+				}
+		let reg = new RegExp("\{([A-Z]+)\}", "gm");
+		url = url.replace(reg, function(a, b, c, d)
+		{
+			if (b in tags)
+				return tags[b];
+			return a;
+		});
+		return url;
+	}, //fixUrl()
+
+	decode: function(t)
+	{
+		t = t.toString();
+		let r = "";
+		for(let i = 0; i < t.length; i += 2)
+		{
+			r += String.fromCharCode(parseInt(t.substr(i, 2), 16));
+		}
+		return r;
+	}, //decode()
+
+	init: function(reason)
 	{
 		this.setDefaultPrefs();
 		bfht.browser_sessionhistory_max_entries = Services.prefs.getBranch("browser.sessionhistory.").getIntPref("max_entries");
+		try
+		{
+			bfht.max_serialize_back = Services.prefs.getBranch("browser.sessionstore.").getIntPref("max_serialize_back");
+		}catch(e){};
 		unload(function()
 		{
 			if (bfht.browser_sessionhistory_max_entries == 999998)
 				bfht.browser_sessionhistory_max_entries = 50;
 
+			if (bfht.max_serialize_back == 999998)
+				bfht.max_serialize_back = 10;
+
 			Services.prefs.getBranch("browser.sessionhistory.").setIntPref("max_entries", bfht.browser_sessionhistory_max_entries);
+			if (bfht.max_serialize_back !== null)
+				Services.prefs.getBranch("browser.sessionstore.").setIntPref("max_serialize_back", bfht.max_serialize_back);
 		});
 		Services.prefs.getBranch("browser.sessionhistory.").setIntPref("max_entries", 999998);
+		Services.prefs.getBranch("browser.sessionstore.").setIntPref("max_serialize_back", 999998);
 		watchWindows(function(window, type)
 		{
 			if (!window)
@@ -211,7 +249,13 @@ var bfht = {
 					getWebNavigation = window.getWebNavigation,
 					gNavigatorBundle = window.gNavigatorBundle,
 					gBrowser = window.gBrowser,
-					click_hold_context_menus = Services.prefs.getBranch('ui.click_hold_context_menus'),
+					rootWin =  window.QueryInterface(Components.interfaces.nsIInterfaceRequestor)
+												.getInterface(Components.interfaces.nsIWebNavigation)
+												.QueryInterface(Components.interfaces.nsIDocShellTreeItem)
+												.rootTreeItem
+												.QueryInterface(Components.interfaces.nsIInterfaceRequestor)
+												.getInterface(Components.interfaces.nsIDOMWindow),
+					rootDoc = rootWin.document,
 					showChangesLog = function()
 					{
 						let url = Services.vc.compare(Services.appinfo.version, "7.0") > 0
@@ -219,324 +263,479 @@ var bfht = {
 											: addon.getResourceURI("changes.txt").spec;
 						window.switchToTabHavingURI(url, true);
 					},
-					onPrefChangeScroll = {
-						window: window,
-						document: document,
-						overflowInit: overflowInit,
-						observe: function(pref, aTopic, key)
-						{
-							if(aTopic != "nsPref:changed")
-								return;
+					onPrefChangeScroll = null,
+					addonOptionsDisplayed = null;
 
-							bfht.onPrefChange.observe(pref, aTopic, key);
-							var window = onPrefChangeScroll.window;
-							var document = onPrefChangeScroll.document;
-							onPrefChangeScroll.overflowInit();
+			onPrefChangeScroll = {
+				window: window,
+				document: document,
+				overflowInit: overflowInit,
+				observe: function(pref, aTopic, key)
+				{
+					if(aTopic != "nsPref:changed")
+						return;
+
+					bfht.onPrefChange.observe(pref, aTopic, key);
+					var window = onPrefChangeScroll.window;
+					var document = onPrefChangeScroll.document;
+					onPrefChangeScroll.overflowInit();
+				}
+			},
+			addonOptionsDisplayed = {
+				window: window,
+				observe: function(document, aTopic, aData)
+				{
+				if (aTopic != "addon-options-displayed" || aData != ADDON_ID)
+						return;
+
+					function settingFix(node, key)
+					{
+						//add menulist support for FF 7
+						if (Services.vc.compare(Services.appinfo.version, "7.0") > 0)
+							return;
+
+						let window = addonOptionsDisplayed.window,
+								prefChanged = {
+									pref: Services.prefs.getBranch(""),
+									observe: function(pref, aTopic, key)
+									{
+										if(aTopic != "nsPref:changed")
+											return;
+
+										node.firstChild.selectedIndex = pref.getIntPref(key);
+									},
+								};
+						node.setAttribute("type", "control");
+						node.firstChild.value = bfht.prefs[key].value;
+						let addObserver = prefChanged.pref.addObserver || prefChanged.pref.QueryInterface(Ci.nsIPrefBranch2).addObserver;
+						addObserver(node.getAttribute("pref"), prefChanged, false);
+						listen(window, window, "unload", function()
+						{
+							let removeObserver = prefChanged.pref.removeObserver || prefChanged.pref.QueryInterface(Ci.nsIPrefBranch2).removeObserver;
+							removeObserver(node.getAttribute("pref"), prefChanged, false);
+						}, false);
+
+						unload(function()
+						{
+							let removeObserver = prefChanged.pref.removeObserver || prefChanged.pref.QueryInterface(Ci.nsIPrefBranch2).removeObserver;
+							removeObserver(node.getAttribute("pref"), prefChanged, false);
+						}, window);
+						listen(window, node.firstChild, "command", function (e)
+						{
+							bfht.pref.setIntPref(key, e.target.value);
+						});
+					} //settingFix
+					function settingInit(node, key)
+					{
+						switch(node.getAttribute("type"))
+						{
+							case "menulist":
+									settingFix(node, key);
+								break;
+							case "integer":
+							case "string":
+									try
+									{
+										let attr = ["size", "flex"],
+												n = node.boxObject.lastChild.firstChild;
+										for (let [key, a] in Iterator(attr))
+											if (node.hasAttribute(a))
+												n.setAttribute(a, node.getAttribute(a));
+									}
+									catch(e){};
+								break;
 						}
-					},
-					addonOptionsDisplayed = {
-						window: window,
-						observe: function(document, aTopic, aData)
+						node.setAttribute("title", _("options." + key));
+						if (_("options." + key + ".desc"))
+							node.setAttribute("desc", _("options." + key + ".desc"));
+				
+						let i = 0;
+						while(node = $(document, "bfht_" + key + "_" + i))
 						{
-						if (aTopic != "addon-options-displayed" || aData != ADDON_ID)
+							node.setAttribute(node.tagName == "label" ? "value" : "label", _("options." + key + "." + i));
+							node.setAttribute("default", i == bfht.prefs[key].default);
+							i++;
+						}
+					} //settingInit()
+
+					function mouseOver(e)
+					{
+						let status = "XULBrowserWindow" in rootWin ? rootWin.XULBrowserWindow : null,
+								txt = e.target.getAttribute("link");
+						if (status)
+						{
+							status.overLink = txt;
+							try
+							{
+								rootWin.LinkTargetDisplay.update();
+							}
+							catch(e)
+							{
+								status.updateStatusField();
+							}
+						}
+						else
+						{
+							status = rootDoc.getElementById("statusText");
+							if (!status)
 								return;
-
-							function settingFix(node, key)
+							status.setAttribute("label", txt);
+						}
+					} //mouseOver()
+					
+					function mouseOut(e)
+					{
+						let status = "XULBrowserWindow" in rootWin ? rootWin.XULBrowserWindow : null;
+						if (status)
+						{
+							status.overLink = "";
+							try
 							{
-								//add menulist support for FF 7
-								if (Services.vc.compare(Services.appinfo.version, "7.0") > 0)
-									return;
-
-								let window = addonOptionsDisplayed.window,
-										prefChanged = {
-											pref: Services.prefs.getBranch(""),
-											observe: function(pref, aTopic, key)
-											{
-												if(aTopic != "nsPref:changed")
-													return;
-
-												node.firstChild.selectedIndex = pref.getIntPref(key);
-											},
-										};
-								node.setAttribute("type", "control");
-								node.firstChild.value = bfht.prefs[key].value;
-								let addObserver = prefChanged.pref.addObserver || prefChanged.pref.QueryInterface(Ci.nsIPrefBranch2).addObserver;
-								addObserver(node.getAttribute("pref"), prefChanged, false);
-								listen(window, window, "unload", function()
-								{
-									let removeObserver = prefChanged.pref.removeObserver || prefChanged.pref.QueryInterface(Ci.nsIPrefBranch2).removeObserver;
-									removeObserver(node.getAttribute("pref"), prefChanged, false);
-								}, false);
-
-								unload(function()
-								{
-									let removeObserver = prefChanged.pref.removeObserver || prefChanged.pref.QueryInterface(Ci.nsIPrefBranch2).removeObserver;
-									removeObserver(node.getAttribute("pref"), prefChanged, false);
-								}, window);
-								listen(window, node.firstChild, "command", function (e)
-								{
-									bfht.pref.setIntPref(key, e.target.value);
-								});
-							} //settingFix
-
-							function settingInit(node, key)
+								rootWin.LinkTargetDisplay.update();
+							}
+							catch(e)
 							{
-								switch(node.getAttribute("type"))
-								{
-									case "menulist":
-											settingFix(node, key);
-										break;
-									case "integer":
-									case "string":
-											try
-											{
-												let attr = ["size", "flex"],
-														n = node.boxObject.lastChild.firstChild;
-												for (let [key, a] in Iterator(attr))
-													if (node.hasAttribute(a))
-														n.setAttribute(a, node.getAttribute(a));
-											}
-											catch(e){};
-										break;
-								}
-								node.setAttribute("title", _("options." + key));
-								if (_("options." + key + ".desc"))
-									node.setAttribute("desc", _("options." + key + ".desc"));
+								status.updateStatusField();
+							}
+						}
+						else
+						{
+							status = rootDoc.getElementById("statusText");
+							if (!status)
+								return;
+							status.setAttribute("label", "");
+						}
+					} //mouseOut()
+					
+					function Copy(e)
+					{
+						Components.classes["@mozilla.org/widget/clipboardhelper;1"]
+							.getService(Components.interfaces.nsIClipboardHelper)
+							.copyString(document.popupNode.hasAttribute("linkCopy") ? document.popupNode.getAttribute("linkCopy") : document.popupNode.getAttribute("link"));
+					} //copy()
 
-								let i = 0;
-								while(node = $(document, "bfht_" + key + "_" + i))
-								{
-									node.setAttribute(node.tagName == "label" ? "value" : "label", _("options." + key + "." + i));
-									node.setAttribute("default", i == bfht.prefs[key].default);
-									i++;
-								}
-							} //settingInit
+					for (let [key, val] in Iterator(bfht.prefs))
+					{
+						var node = $(document, "bfht_" + key);
+						if (!node)
+							continue;
 
+						settingInit(node, key);
+					}
+					$(document, "detail-homepage-row").hidden = true;;
+					let r = $(document, "detail-rows").getElementsByTagName("setting");
+					if (r.length > 1)
+					{
+						r[0].removeAttribute("first-row");
+						r[1].setAttribute("first-row", true);
+						r[1].style.marginTop = "0";
+					}
+					$(document, "bfht_reset_button").setAttribute("label", _("options.reset"));
+					$(document, "bfht_reset").setAttribute("title", _("options.reset.desc"));
+					$(document, "bfht_reset_button").removeAttribute("value");
+					listen(window, $(document, "bfht_reset_button"), "click", function(e)
+					{
+						if (!e.button)
+							bfht.setDefaultPrefs(e)
+					}, false);
+					let popup = document.createElement("popupset"),
+							menupopup = document.createElement("menupopup");
+					menupopup.id = "bfht_link";
+					menupopup.appendChild($(document, "bfht_copy"));
+					popup.appendChild(menupopup);
+					$(document, "addons-page").appendChild(popup);
+					let s = $(document, "bfht_support_website")
+					s.appendChild(document.createTextNode(_("options.support.website")));
+					s.removeAttribute("value");
+					s.setAttribute("href", SUPPORTSITE);
+					s.setAttribute("link", SUPPORTSITE);
+					s.setAttribute("tooltiptext", SUPPORTSITE);
+					s.setAttribute("context", "bfht_link");
+
+					s = $(document, "bfht_homepage")
+					s.appendChild(document.createTextNode(_("options.homepage")));
+					s.removeAttribute("value");
+					s.setAttribute("href", HOMEPAGE);
+					s.setAttribute("link", HOMEPAGE);
+					s.setAttribute("tooltiptext", HOMEPAGE);
+					s.setAttribute("context", "bfht_link");
+
+					s = $(document, "bfht_support_email");
+					s.appendChild(document.createTextNode(_("options.support.email")));
+					s.removeAttribute("value");
+					s.setAttribute("href", "mailto:blah@vano.org");
+					s.setAttribute("href", bfht.fixUrl("mailto:{NAME} support<{EMAIL}>?subject={NAME}%20support&body=%0A%0A_______%0AAddon:%20{NAME}%20v{VER}%0AOS:%20{OS}%0AApp:%20{APP}"));
+					s.setAttribute("link", bfht.fixUrl("{EMAIL}"));
+					s.setAttribute("linkCopy", bfht.fixUrl("{NAMERAW} support<{EMAILRAW}>"));
+					s.setAttribute("tooltiptext", bfht.fixUrl("{EMAIL}"));
+					s.setAttribute("context", "bfht_link");
+					listen(window, $(document, "bfht_link"), "command", Copy, false);
+					listen(window, $(document, "bfht_homepage"), "mouseover", mouseOver, false);
+					listen(window, $(document, "bfht_homepage"), "mouseout", mouseOut, false);
+					listen(window, $(document, "bfht_support_website"), "mouseover", mouseOver, false);
+					listen(window, $(document, "bfht_support_website"), "mouseout", mouseOut, false);
+					listen(window, $(document, "bfht_support_email"), "mouseover", mouseOver, false);
+					listen(window, $(document, "bfht_support_email"), "mouseout", mouseOut, false);
+					listen(window, $(document, "bfht_showChangesLog_button"), "click", function(e)
+					{
+						if (!e.button)
+							showChangesLog();
+					}, false);
+					$(document, "bfht_num").setAttribute("min", bfht.prefs.num.min);
+					$(document, "bfht_num").setAttribute("max", bfht.prefs.num.max);
+					//a hack to allow use text in the numberbox
+					$(document, "bfht_num").prev = [0, 0, bfht.prefs.num.value];
+					var numBox = $(document, "bfht_num");
+					function replace_validateValue(numBox)
+					{
+						numBox._validateValue = function(aValue, aIsIncDec)
+						{
+							var obj = $(document, "bfht_num");
+							aValue = Number(String(aValue).replace(/[^0-9\-]/g, "")) || 0;
+							var min = numBox.min;
+							var max = numBox.max;
+							if (aValue < min)
+								aValue = min;
+							else if (aValue > max)
+								aValue = numBox._value > max ? max : numBox._value;
+							aValue = "" + aValue;
+							numBox._valueEntered = false;
+							numBox._value = Number(aValue);
+							obj.prev.push(numBox._value);
+							obj.prev.splice(0,1);
+							numBox.inputField.value = Number(aValue) ? aValue : _("all");
+							numBox._enableDisableButtons();
+							return aValue;
+						}
+					}
+					//fixing text wrap and adding menulist setting for FF 7 - 9
+					if (Services.vc.compare(Services.appinfo.version, "12") < 0)
+					{
+						//fixing text wrap
+						//for some reason on FF10 and older setting.boxObject.firstChild is null at this point. We need wait until it's available.
+						var timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer)
+						timer.init({observe: function()
+						{
 							for (let [key, val] in Iterator(bfht.prefs))
 							{
-								var node = $(document, "bfht_" + key);
-								if (!node)
+								let node = $(document, "bfht_" + key);
+								if (!node || !node.boxObject.firstChild)
 									continue;
 
-								settingInit(node, key);
-							}
-							$(document, "bfht_reset_button").appendChild(document.createTextNode(_("options.reset")));
-							$(document, "bfht_reset_button").removeAttribute("value");
-							listen(window, $(document, "bfht_reset_button"), "click", bfht.setDefaultPrefs, false);
-							listen(window, $(document, "bfht_showChangesLog"), "click", function(e)
-							{
-								if (e.originalTarget.tagName == "xul:label" && e.originalTarget.className == "preferences-title")
-									showChangesLog();
-							}, false);
-							$(document, "bfht_num").setAttribute("min", bfht.prefs.num.min);
-							$(document, "bfht_num").setAttribute("max", bfht.prefs.num.max);
-							//a hack to allow use text in the numberbox
-							$(document, "bfht_num").prev = [0, 0, bfht.prefs.num.value];
-							var numBox = $(document, "bfht_num");
-							function replace_validateValue(numBox)
-							{
-								numBox._validateValue = function(aValue, aIsIncDec)
+								node = node.boxObject.firstChild;
+								let desc = node.getElementsByClassName("preferences-description"),
+										title = node.getElementsByClassName("preferences-title");
+
+								if (title.length)
 								{
-									var obj = $(document, "bfht_num");
-									aValue = Number(String(aValue).replace(/[^0-9\-]/g, "")) || 0;
-									var min = numBox.min;
-									var max = numBox.max;
-									if (aValue < min)
-										aValue = min;
-									else if (aValue > max)
-										aValue = numBox._value > max ? max : numBox._value;
-									aValue = "" + aValue;
-									numBox._valueEntered = false;
-									numBox._value = Number(aValue);
-									obj.prev.push(numBox._value);
-									obj.prev.splice(0,1);
-									numBox.inputField.value = Number(aValue) ? aValue : _("all");
-									numBox._enableDisableButtons();
-									return aValue;
+									title[0].removeAttribute("crop");
+									title[0].appendChild(document.createTextNode(title[0].value));
+									title[0].setAttribute("text", title[0].value);
+									title[0].removeAttribute("value");
+									title[0].style.whiteSpace = "pre-wrap";
+								}
+
+								if (desc.length && desc[0].value)
+								{
+									desc[0].removeAttribute("crop");
+									desc[0].firstChild.nodeValue = desc[0].value;
+									desc[0].setAttribute("text", desc[0].value);
+									desc[0].removeAttribute("value");
+									desc[0].style.whiteSpace = "pre-wrap";
+//											desc[0].lastChild.parentNode.removeChild(desc[0].lastChild);
 								}
 							}
-							//fixing text wrap and adding menulist setting for FF 7 - 9
-							if (Services.vc.compare(Services.appinfo.version, "12") < 0)
+							numBox = $(document, "bfht_num").boxObject.lastChild.firstChild;
+							replace_validateValue(numBox);
+							$(document, "bfht_num").value = bfht.prefs.num.value;
+							listen(window, $(document, "bfht_num"), "change", function(e)
 							{
-								//fixing text wrap
-								//for some reason on FF10 and older setting.boxObject.firstChild is null at this point. We need wait until it's available.
-								var timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer)
-								timer.init({observe: function()
+								e.target.value = bfht.numCheck(e.target.value, e.target.prev[0]);
+								e.target.boxObject.lastChild.boxObject.firstChild.select();
+							}, true);
+
+							var desc = $(document, "bfht_showChangesLog").boxObject.firstChild.getElementsByClassName("preferences-title");
+							if (desc.length)
+							{
+								let l = document.createElement("label");
+								l.appendChild(desc[0].firstChild);
+								$(document, "bfht_showChangesLog_button").setAttribute("value", _("options.showChangesLog.button"));
+								l.appendChild($(document, "bfht_showChangesLog_button"));
+								desc[0].appendChild(l);
+								desc[0].className += " childlabel";
+							}
+							node = $(document, "bfht_reset").boxObject.firstChild.getElementsByClassName("preferences-description");
+							if (node.length)
+							{
+								let l = document.createElement("label");
+								l.appendChild($(document, "bfht_reset_button"));
+								node[0].parentNode.insertBefore(l, node[0]);
+							}
+
+							$(document, "bfht_support").setAttribute("title", _("options.support"));
+							node = $(document, "bfht_support").boxObject.firstChild.getElementsByClassName("preferences-description");
+							if (node.length)
+							{
+								let l = document.createElement("label"),
+										t = document.createElement("label");
+								t.appendChild(document.createTextNode("|"));
+								l.appendChild($(document, "bfht_homepage"));
+								l.appendChild(t);
+								l.appendChild($(document, "bfht_support_website"));
+								l.appendChild(t.cloneNode(true));
+								l.appendChild($(document, "bfht_support_email"));
+								node[0].appendChild(l);
+							}
+
+						}}, 0, Ci.nsITimer.TYPE_ONE_SHOT);
+						unload(timer.cancel, window);
+					}
+					else	// FF12+
+					{
+						let node = $(document, "bfht_showChangesLog").boxObject.firstChild.getElementsByClassName("preferences-title");
+						if (node.length)
+						{
+							let l = document.createElement("label");
+							l.appendChild(node[0].firstChild);
+							$(document, "bfht_showChangesLog_button").setAttribute("value", _("options.showChangesLog.button"));
+							l.appendChild($(document, "bfht_showChangesLog_button"));
+							node[0].appendChild(l);
+							node[0].className += " childlabel";
+						}
+						$(document, "bfht_support").setAttribute("title", _("options.support"));
+						node = $(document, "bfht_support").boxObject.firstChild.getElementsByClassName("preferences-description");
+						if (node.length)
+						{
+							let l = document.createElement("label"),
+									t = document.createElement("label");
+//							t.className = "childlabel";
+							t.appendChild(document.createTextNode("|"));
+							l.appendChild($(document, "bfht_homepage"));
+							l.appendChild(t);
+							l.appendChild($(document, "bfht_support_website"));
+							l.appendChild(t.cloneNode(true));
+							l.appendChild($(document, "bfht_support_email"));
+							node[0].appendChild(l);
+						}
+						node = $(document, "bfht_reset").boxObject.firstChild.getElementsByClassName("preferences-description");
+						if (node.length)
+						{
+							let l = document.createElement("label");
+							l.appendChild($(document, "bfht_reset_button"));
+							node[0].parentNode.insertBefore(l, node[0]);
+						}
+						numBox = $(document, "bfht_num").input;
+						replace_validateValue(numBox);
+						$(document, "bfht_num").value = bfht.prefs.num.value;
+						listen(window, $(document, "bfht_num"), "change", function(e)
+						{
+							e.target.value = bfht.numCheck(e.target.value, e.target.prev[0]);
+							e.target.input.select();
+						}, true);
+					} // FF12+
+
+					// FF 10+ display information about addons taken from the web,
+					// that information is way too big to fit on the screen,
+					// so we restrict it to scrollbox where user don't need scroll much to get to the options.
+					if (Services.vc.compare(Services.appinfo.version, "10") > 0)
+					{
+						let timer2 = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+						function changeNode(obj, name, value, force)
+						{
+							if (!("nodeBackupData" in obj))
+							{
+								obj.nodeBackupData = {};
+								obj.nodeOrigData = {};
+							}
+
+							if (!(name in obj.nodeOrigData) || force)
+							{
+								if (!(name in obj.nodeOrigData))
 								{
-									for (let [key, val] in Iterator(bfht.prefs))
-									{
-										let node = $(document, "bfht_" + key);
-										if (!node || !node.boxObject.firstChild)
-											continue;
+									obj.nodeOrigData[name] = obj.style[name];
+								}
+								obj.nodeBackupData[name] = obj.style[name];
+							}
+							obj.style[name] = value;
+						} //changeNode
 
-										node = node.boxObject.firstChild;
-										let desc = node.getElementsByClassName("preferences-description"),
-												title = node.getElementsByClassName("preferences-title");
+						function restoreNode(obj, name, value)
+						{
+							if ("nodeBackupData" in obj && name in obj.nodeBackupData)
+								value = obj.nodeBackupData[name];
+							else if (typeof(value) == "undefined")
+								value = obj.style[name];
 
-										if (title.length)
-										{
-											title[0].removeAttribute("crop");
-											title[0].appendChild(document.createTextNode(title[0].value));
-											title[0].setAttribute("text", title[0].value);
-											title[0].removeAttribute("value");
-											title[0].style.whiteSpace = "pre-wrap";
-										}
+							changeNode(obj, name, value, 1);
+						} //restoreNode
 
-										if (desc.length && desc[0].value)
-										{
-											desc[0].removeAttribute("crop");
-											desc[0].firstChild.nodeValue = desc[0].value;
-											desc[0].setAttribute("text", desc[0].value);
-											desc[0].removeAttribute("value");
-											desc[0].style.whiteSpace = "pre-wrap";
-//											desc[0].lastChild.parentNode.removeChild(desc[0].lastChild);
-										}
-									}
-									numBox = $(document, "bfht_num").boxObject.lastChild.firstChild;
-									replace_validateValue(numBox);
-									$(document, "bfht_num").value = bfht.prefs.num.value;
-									listen(window, $(document, "bfht_num"), "change", function(e)
-									{
-										e.target.value = bfht.numCheck(e.target.value, e.target.prev[0]);
-										e.target.boxObject.lastChild.boxObject.firstChild.select();
-									}, true);
-									$(document, "bfht_showChangesLog").appendChild($(document, "bfht_showChangesLog_button"));
-									node = $(document, "bfht_reset").boxObject.firstChild.getElementsByClassName("preferences-title");
-									if (node.length)
-										node[0].insertBefore($(document, "bfht_reset_button"), node[0].firstChild);
-
-								}}, 0, Ci.nsITimer.TYPE_ONE_SHOT);
-								unload(timer.cancel, window);
+						function showDesc(obj)
+						{
+							let node = $(document, "detail-fulldesc").parentNode,
+									c = $(document, "detail-view").getElementsByClassName("detail-view-container");
+							if (obj.getAttribute("state") == "collapsed")
+							{
+								changeNode(node, "height", "10em");
+								changeNode(node, "overflow", "auto");
+								$(document, "detail-fulldesc").setAttribute("full", false);
 							}
 							else
 							{
-								var desc = $(document, "bfht_showChangesLog").boxObject.firstChild.getElementsByClassName("preferences-description");
-								if (desc.length)
-								{
-									let l = document.createElement("label");
-									l.appendChild(desc[0].firstChild);
-									l.appendChild($(document, "bfht_showChangesLog_button"));
-									desc[0].appendChild(l);
-								}
-								var desc = $(document, "bfht_reset").boxObject.firstChild.getElementsByClassName("preferences-alignment");
-								if (desc.length)
-								{
-									let l = document.createElement("label");
-									l.appendChild(desc[0].firstChild);
-									l.appendChild($(document, "bfht_reset_button"));
-									desc[0].appendChild(l);
-								}
-								numBox = $(document, "bfht_num").input;
-								replace_validateValue(numBox);
-								$(document, "bfht_num").value = bfht.prefs.num.value;
-								listen(window, $(document, "bfht_num"), "change", function(e)
-								{
-									e.target.value = bfht.numCheck(e.target.value, e.target.prev[0]);
-									e.target.input.select();
-								}, true);
+								changeNode(node, "maxHeight", "");
+								changeNode(node, "height", "");
+								changeNode(node, "overflow", "");
+								$(document, "detail-fulldesc").setAttribute("full", true);
 							}
-							// FF 10+ display information about addons taken from the web,
-							// that information is way too big to fit on the screen,
-							// so we restrict it to scrollbox where user don't need scroll much to get to the options.
-							if (Services.vc.compare(Services.appinfo.version, "10") > 0)
+						} //showDesc
+
+						if (!$(document, "detail-fulldesc-splitter"))
+						{
+							$(document, "detail-fulldesc").setAttribute("persist", "full");
+							timer2.init({observe: function()
 							{
-								let timer2 = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-								function changeNode(obj, name, value, force)
+								let parent = $(document, "detail-desc").parentNode;
+								if (parent.boxObject.height < 100)
+									return;
+
+								let vbox = document.createElement("vbox");
+								let splitterBox = document.createElement("vbox");
+								let splitter = document.createElement("splitter");
+								let grippy = document.createElement("grippy");
+								splitter.appendChild(grippy);
+								splitterBox.appendChild(splitter);
+								splitter.setAttribute("collapse", "before");
+								splitter.setAttribute("state", $(document, "detail-fulldesc").getAttribute("full") == "true" ? "open" : "collapsed");
+								splitter.setAttribute("resizebefore", "closest");
+								splitter.setAttribute("resizeafter", "grow");
+								splitter.id = "detail-fulldesc-splitter";
+								splitter.style.cursor = "pointer";
+								parent.appendChild(vbox);
+								vbox.appendChild($(document, "detail-fulldesc"));
+								parent.appendChild(splitterBox);
+
+								showDesc(splitter);
+								listen(window, grippy, "command", function(e){showDesc(e.target.parentNode)}, true);
+								listen(window, splitter, "click", function(e){if (e.originalTarget == splitter) grippy.click();}, false);
+								unload(function()
 								{
-									if (!("nodeBackupData" in obj))
-									{
-										obj.nodeBackupData = {};
-										obj.nodeOrigData = {};
-									}
+									//we don't want remove persistant settings on browser shutdown
+									if (bfht.reason == APP_SHUTDOWN)
+										return;
 
-									if (!(name in obj.nodeOrigData) || force)
-									{
-										if (!(name in obj.nodeOrigData))
-										{
-											obj.nodeOrigData[name] = obj.style[name];
-										}
-										obj.nodeBackupData[name] = obj.style[name];
-									}
-									obj.style[name] = value;
-								} //changeNode
-
-								function restoreNode(obj, name, value)
-								{
-									if ("nodeBackupData" in obj && name in obj.nodeBackupData)
-										value = obj.nodeBackupData[name];
-									else if (typeof(value) == "undefined")
-										value = obj.style[name];
-
-									changeNode(obj, name, value, 1);
-								} //restoreNode
-
-								function showDesc(obj)
-								{
-									let node = $(document, "detail-fulldesc").parentNode,
-											c = $(document, "detail-view").getElementsByClassName("detail-view-container");
-									if (obj.getAttribute("state") == "collapsed")
-									{
-										changeNode(node, "height", "10em");
-										changeNode(node, "overflow", "auto");
-										$(document, "detail-fulldesc").setAttribute("full", false);
-									}
-									else
-									{
-										changeNode(node, "maxHeight", "");
-										changeNode(node, "height", "");
-										changeNode(node, "overflow", "");
-										$(document, "detail-fulldesc").setAttribute("full", true);
-									}
-								} //showDesc
-
-								if (!$(document, "detail-fulldesc-splitter"))
-								{
-									$(document, "detail-fulldesc").setAttribute("persist", "full");
-									timer2.init({observe: function()
-									{
-										let parent = $(document, "detail-desc").parentNode;
-										if (parent.boxObject.height < 100)
-											return;
-
-										let vbox = document.createElement("vbox");
-										let splitterBox = document.createElement("vbox");
-										let splitter = document.createElement("splitter");
-										let grippy = document.createElement("grippy");
-										splitter.appendChild(grippy);
-										splitterBox.appendChild(splitter);
-										splitter.setAttribute("collapse", "before");
-										splitter.setAttribute("state", $(document, "detail-fulldesc").getAttribute("full") == "true" ? "open" : "collapsed");
-										splitter.setAttribute("resizebefore", "closest");
-										splitter.setAttribute("resizeafter", "grow");
-										splitter.id = "detail-fulldesc-splitter";
-										splitter.style.cursor = "pointer";
-										parent.appendChild(vbox);
-										vbox.appendChild($(document, "detail-fulldesc"));
-										parent.appendChild(splitterBox);
-
-										showDesc(splitter);
-										listen(window, grippy, "command", function(e){showDesc(e.target.parentNode)}, true);
-										listen(window, splitter, "click", function(e){if (e.originalTarget == splitter) grippy.click();}, false);
-										unload(function()
-										{
-											//we don't want remove persistant settings on browser shutdown
-											if (bfht.reason == APP_SHUTDOWN)
-												return;
-
-											splitter.setAttribute("state", "open");
-											showDesc(splitter);
-											splitterBox.parentNode.removeChild(splitterBox);
-											parent.appendChild($(document, "detail-fulldesc"));
-											parent.removeChild(vbox);
-											$(document, "detail-fulldesc").removeAttribute("full");
-											$(document, "detail-fulldesc").removeAttribute("persist");
-										}, window);
-									}}, 0, Ci.nsITimer.TYPE_ONE_SHOT);
-									unload(timer2.cancel, window);
-								} //detail-fulldesc-splitter
-							} //FF10+
-						} //end addonOptionsDisplayed.observe()
-					}; //end addonOptionsDisplayed
+									splitter.setAttribute("state", "open");
+									showDesc(splitter);
+									splitterBox.parentNode.removeChild(splitterBox);
+									parent.appendChild($(document, "detail-fulldesc"));
+									parent.removeChild(vbox);
+									$(document, "detail-fulldesc").removeAttribute("full");
+									$(document, "detail-fulldesc").removeAttribute("persist");
+								}, window);
+							}}, 0, Ci.nsITimer.TYPE_ONE_SHOT);
+							unload(timer2.cancel, window);
+						} //detail-fulldesc-splitter
+					} //FF10+
+				} //end addonOptionsDisplayed.observe()
+			}; //end addonOptionsDisplayed
 
 			function overflowInit()
 			{
@@ -613,8 +812,6 @@ var bfht = {
 				//restore original function
 				delete window.bfht;
 				window.FillHistoryMenu = _FillHistoryMenu;
-				let removeObserver = click_hold_context_menus.removeObserver || click_hold_context_menus.QueryInterface(Ci.nsIPrefBranch2).removeObserver;
-				removeObserver('', onPrefChangeScroll);
 				removeObserver = bfht.pref.removeObserver || bfht.pref.QueryInterface(Ci.nsIPrefBranch2).removeObserver;
 				removeObserver('', onPrefChangeScroll, false);
 				Services.obs.removeObserver(overflowInit, "browser-delayed-startup-finished");
@@ -622,6 +819,7 @@ var bfht = {
 			}
 
 //modified FillHistoryMenu function from chrome://browser/content/browser.js
+//original source 4 - 35.0a1
 function FillHistoryMenu(aParent) {
 /*
   // Lazily add the hover listeners on first showing and never remove them
@@ -845,8 +1043,6 @@ function FillHistoryMenu(aParent) {
 
 			Services.obs.addObserver(overflowInit, "browser-delayed-startup-finished", false);
 			Services.obs.addObserver(addonOptionsDisplayed, "addon-options-displayed", false);
-			let addObserver = click_hold_context_menus.addObserver || click_hold_context_menus.QueryInterface(Ci.nsIPrefBranch2).addObserver;
-			addObserver('', onPrefChangeScroll, false);
 			addObserver = bfht.pref.addObserver || bfht.pref.QueryInterface(Ci.nsIPrefBranch2).addObserver;
 			addObserver('', onPrefChangeScroll, false);
 			if (bfht.prefs.version.value != addon.version)
@@ -858,7 +1054,7 @@ function FillHistoryMenu(aParent) {
 					changesLogTimer.init({observe: function()
 					{
 						showChangesLog();
-					}}, 0, changesLogTimer.TYPE_ONE_SHOT);
+					}}, 1000, changesLogTimer.TYPE_ONE_SHOT);
 					unload(changesLogTimer.cancel, window);
 				}
 			}
@@ -889,14 +1085,16 @@ function startup(data, reason)
 		try{Components.manager.addBootstrappedManifestLocation(data.installPath)}catch(e){}
 
 	ADDON_ID = data.id;
-	include("includes/utils.js");
-	include("includes/l10n.js");
-	l10n(addon, "backforwardhistorytweaks.properties");
-	unload(l10n.unload);
-	loadStyles(addon, ["style"]);
-	AddonManager.getAddonByID(ADDON_ID, function(addon)
+	AddonManager.getAddonByID(ADDON_ID, function(a)
 	{
-		bfht.init(addon, reason);
+		addon = a
+		include("includes/utils.js");
+		include("includes/l10n.js");
+		include("chrome/content/constants.js");
+		l10n(addon, "backforwardhistorytweaks.properties");
+		unload(l10n.unload);
+		loadStyles(addon, ["style"]);
+		bfht.init(reason);
 	});
 }
 
