@@ -7,11 +7,13 @@ Legend:
 * = Changed
 - = Removed
 
-v1.1.1 (2014-09-27)
+v1.1.1 (2014-10-02)
 	+ changes log can be access from options
 	+ links to support website/email in addon's options
 	* misspellings in options
 	! only 10 history items restored after undo closed tab (CTRL + SHIFT + T)
+	! options not properly initialized when opened more then once in two or more windows
+	! multiple events fired in options when more then one window with addon's options opened
 
 v1.1 (2013-07-15)
 	+ added list order option

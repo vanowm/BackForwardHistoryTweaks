@@ -234,6 +234,7 @@ var ADDON_ID,
 		});
 		Services.prefs.getBranch("browser.sessionhistory.").setIntPref("max_entries", 999998);
 		Services.prefs.getBranch("browser.sessionstore.").setIntPref("max_serialize_back", 999998);
+
 		watchWindows(function(window, type)
 		{
 			if (!window)
@@ -256,7 +257,7 @@ var ADDON_ID,
 												.QueryInterface(Components.interfaces.nsIInterfaceRequestor)
 												.getInterface(Components.interfaces.nsIDOMWindow),
 					rootDoc = rootWin.document,
-					showChangesLog = function()
+					showChangesLog = function(window)
 					{
 						let url = Services.vc.compare(Services.appinfo.version, "7.0") > 0
 											? "chrome://bfht/content/changes.xul"
@@ -265,7 +266,10 @@ var ADDON_ID,
 					},
 					onPrefChangeScroll = null,
 					addonOptionsDisplayed = null;
-
+			function $(id)
+			{
+				return _$(document, id);
+			}
 			onPrefChangeScroll = {
 				window: window,
 				document: document,
@@ -278,14 +282,26 @@ var ADDON_ID,
 					bfht.onPrefChange.observe(pref, aTopic, key);
 					var window = onPrefChangeScroll.window;
 					var document = onPrefChangeScroll.document;
+					function $(id)
+					{
+						return _$(document, id);
+					}
 					onPrefChangeScroll.overflowInit();
 				}
-			},
+			}, //onPrefChangeScroll
 			addonOptionsDisplayed = {
 				window: window,
 				observe: function(document, aTopic, aData)
 				{
 				if (aTopic != "addon-options-displayed" || aData != ADDON_ID)
+						return;
+
+					function $(id)
+					{
+						return _$(document, id);
+					}
+					// inited
+					if ($("bfht_popup"))
 						return;
 
 					function settingFix(node, key)
@@ -309,7 +325,7 @@ var ADDON_ID,
 						node.firstChild.value = bfht.prefs[key].value;
 						let addObserver = prefChanged.pref.addObserver || prefChanged.pref.QueryInterface(Ci.nsIPrefBranch2).addObserver;
 						addObserver(node.getAttribute("pref"), prefChanged, false);
-						listen(window, window, "unload", function()
+						_listen(window, window, "unload", function()
 						{
 							let removeObserver = prefChanged.pref.removeObserver || prefChanged.pref.QueryInterface(Ci.nsIPrefBranch2).removeObserver;
 							removeObserver(node.getAttribute("pref"), prefChanged, false);
@@ -320,11 +336,12 @@ var ADDON_ID,
 							let removeObserver = prefChanged.pref.removeObserver || prefChanged.pref.QueryInterface(Ci.nsIPrefBranch2).removeObserver;
 							removeObserver(node.getAttribute("pref"), prefChanged, false);
 						}, window);
-						listen(window, node.firstChild, "command", function (e)
+						_listen(window, node.firstChild, "command", function (e)
 						{
 							bfht.pref.setIntPref(key, e.target.value);
 						});
-					} //settingFix
+					} //settingFix()
+
 					function settingInit(node, key)
 					{
 						switch(node.getAttribute("type"))
@@ -350,7 +367,7 @@ var ADDON_ID,
 							node.setAttribute("desc", _("options." + key + ".desc"));
 				
 						let i = 0;
-						while(node = $(document, "bfht_" + key + "_" + i))
+						while(node = $("bfht_" + key + "_" + i))
 						{
 							node.setAttribute(node.tagName == "label" ? "value" : "label", _("options." + key + "." + i));
 							node.setAttribute("default", i == bfht.prefs[key].default);
@@ -414,83 +431,11 @@ var ADDON_ID,
 							.copyString(document.popupNode.hasAttribute("linkCopy") ? document.popupNode.getAttribute("linkCopy") : document.popupNode.getAttribute("link"));
 					} //copy()
 
-					for (let [key, val] in Iterator(bfht.prefs))
-					{
-						var node = $(document, "bfht_" + key);
-						if (!node)
-							continue;
-
-						settingInit(node, key);
-					}
-					$(document, "detail-homepage-row").hidden = true;;
-					let r = $(document, "detail-rows").getElementsByTagName("setting");
-					if (r.length > 1)
-					{
-						r[0].removeAttribute("first-row");
-						r[1].setAttribute("first-row", true);
-						r[1].style.marginTop = "0";
-					}
-					$(document, "bfht_reset_button").setAttribute("label", _("options.reset"));
-					$(document, "bfht_reset").setAttribute("title", _("options.reset.desc"));
-					$(document, "bfht_reset_button").removeAttribute("value");
-					listen(window, $(document, "bfht_reset_button"), "click", function(e)
-					{
-						if (!e.button)
-							bfht.setDefaultPrefs(e)
-					}, false);
-					let popup = document.createElement("popupset"),
-							menupopup = document.createElement("menupopup");
-					menupopup.id = "bfht_link";
-					menupopup.appendChild($(document, "bfht_copy"));
-					popup.appendChild(menupopup);
-					$(document, "addons-page").appendChild(popup);
-					let s = $(document, "bfht_support_website")
-					s.appendChild(document.createTextNode(_("options.support.website")));
-					s.removeAttribute("value");
-					s.setAttribute("href", SUPPORTSITE);
-					s.setAttribute("link", SUPPORTSITE);
-					s.setAttribute("tooltiptext", SUPPORTSITE);
-					s.setAttribute("context", "bfht_link");
-
-					s = $(document, "bfht_homepage")
-					s.appendChild(document.createTextNode(_("options.homepage")));
-					s.removeAttribute("value");
-					s.setAttribute("href", HOMEPAGE);
-					s.setAttribute("link", HOMEPAGE);
-					s.setAttribute("tooltiptext", HOMEPAGE);
-					s.setAttribute("context", "bfht_link");
-
-					s = $(document, "bfht_support_email");
-					s.appendChild(document.createTextNode(_("options.support.email")));
-					s.removeAttribute("value");
-					s.setAttribute("href", "mailto:blah@vano.org");
-					s.setAttribute("href", bfht.fixUrl("mailto:{NAME} support<{EMAIL}>?subject={NAME}%20support&body=%0A%0A_______%0AAddon:%20{NAME}%20v{VER}%0AOS:%20{OS}%0AApp:%20{APP}"));
-					s.setAttribute("link", bfht.fixUrl("{EMAIL}"));
-					s.setAttribute("linkCopy", bfht.fixUrl("{NAMERAW} support<{EMAILRAW}>"));
-					s.setAttribute("tooltiptext", bfht.fixUrl("{EMAIL}"));
-					s.setAttribute("context", "bfht_link");
-					listen(window, $(document, "bfht_link"), "command", Copy, false);
-					listen(window, $(document, "bfht_homepage"), "mouseover", mouseOver, false);
-					listen(window, $(document, "bfht_homepage"), "mouseout", mouseOut, false);
-					listen(window, $(document, "bfht_support_website"), "mouseover", mouseOver, false);
-					listen(window, $(document, "bfht_support_website"), "mouseout", mouseOut, false);
-					listen(window, $(document, "bfht_support_email"), "mouseover", mouseOver, false);
-					listen(window, $(document, "bfht_support_email"), "mouseout", mouseOut, false);
-					listen(window, $(document, "bfht_showChangesLog_button"), "click", function(e)
-					{
-						if (!e.button)
-							showChangesLog();
-					}, false);
-					$(document, "bfht_num").setAttribute("min", bfht.prefs.num.min);
-					$(document, "bfht_num").setAttribute("max", bfht.prefs.num.max);
-					//a hack to allow use text in the numberbox
-					$(document, "bfht_num").prev = [0, 0, bfht.prefs.num.value];
-					var numBox = $(document, "bfht_num");
 					function replace_validateValue(numBox)
 					{
 						numBox._validateValue = function(aValue, aIsIncDec)
 						{
-							var obj = $(document, "bfht_num");
+							var obj = $("bfht_num");
 							aValue = Number(String(aValue).replace(/[^0-9\-]/g, "")) || 0;
 							var min = numBox.min;
 							var max = numBox.max;
@@ -507,7 +452,72 @@ var ADDON_ID,
 							numBox._enableDisableButtons();
 							return aValue;
 						}
+					} //replace_validateValue()
+
+					var numBox = $("bfht_num");
+					for (let [key, val] in Iterator(bfht.prefs))
+					{
+						var node = $("bfht_" + key);
+						if (!node)
+							continue;
+
+						settingInit(node, key);
 					}
+					$("detail-homepage-row").hidden = true;
+					let r = $("detail-rows").getElementsByTagName("setting");
+					if (r.length > 1)
+					{
+						r[0].removeAttribute("first-row");
+						r[1].setAttribute("first-row", true);
+						r[1].style.marginTop = "0";
+					}
+					$("bfht_reset_button").setAttribute("label", _("options.reset"));
+					$("bfht_reset").setAttribute("title", _("options.reset.desc"));
+					$("bfht_reset_button").removeAttribute("value");
+					_listen(window, $("bfht_reset_button"), "click", function(e)
+					{
+						if (!e.button)
+							bfht.setDefaultPrefs(e)
+					}, false);
+
+					let popup = document.createElement("popupset"),
+							menupopup = document.createElement("menupopup");
+					popup.id = "bfht_popup";
+					menupopup.id = "bfht_link";
+					menupopup.appendChild($("bfht_copy"));
+					popup.appendChild(menupopup);
+					$("addons-page").appendChild(popup);
+					let s = $("bfht_support_website")
+					s.textContent = _("options.support.website");
+					s.removeAttribute("value");
+					s.setAttribute("href", SUPPORTSITE);
+					s.setAttribute("link", SUPPORTSITE);
+					s.setAttribute("tooltiptext", SUPPORTSITE);
+					s.setAttribute("context", "bfht_link");
+
+					s = $("bfht_homepage")
+					s.textContent = _("options.homepage");
+					s.removeAttribute("value");
+					s.setAttribute("href", HOMEPAGE);
+					s.setAttribute("link", HOMEPAGE);
+					s.setAttribute("tooltiptext", HOMEPAGE);
+					s.setAttribute("context", "bfht_link");
+
+					s = $("bfht_support_email");
+					s.textContent = _("options.support.email");
+					s.removeAttribute("value");
+					s.setAttribute("href", "mailto:blah@vano.org");
+					s.setAttribute("href", bfht.fixUrl("mailto:{NAME} support<{EMAIL}>?subject={NAME}%20support&body=%0A%0A_______%0AAddon:%20{NAME}%20v{VER}%0AOS:%20{OS}%0AApp:%20{APP}"));
+					s.setAttribute("link", bfht.fixUrl("{EMAIL}"));
+					s.setAttribute("linkCopy", bfht.fixUrl("{NAMERAW} support<{EMAILRAW}>"));
+					s.setAttribute("tooltiptext", bfht.fixUrl("{EMAIL}"));
+					s.setAttribute("context", "bfht_link");
+
+					$("bfht_num").setAttribute("min", bfht.prefs.num.min);
+					$("bfht_num").setAttribute("max", bfht.prefs.num.max);
+					//a hack to allow use text in the numberbox
+					$("bfht_num").prev = [0, 0, bfht.prefs.num.value];
+					let numChange = function(){}
 					//fixing text wrap and adding menulist setting for FF 7 - 9
 					if (Services.vc.compare(Services.appinfo.version, "12") < 0)
 					{
@@ -518,7 +528,7 @@ var ADDON_ID,
 						{
 							for (let [key, val] in Iterator(bfht.prefs))
 							{
-								let node = $(document, "bfht_" + key);
+								let node = $("bfht_" + key);
 								if (!node || !node.boxObject.firstChild)
 									continue;
 
@@ -529,7 +539,7 @@ var ADDON_ID,
 								if (title.length)
 								{
 									title[0].removeAttribute("crop");
-									title[0].appendChild(document.createTextNode(title[0].value));
+									title[0].textContent = title[0].value;
 									title[0].setAttribute("text", title[0].value);
 									title[0].removeAttribute("value");
 									title[0].style.whiteSpace = "pre-wrap";
@@ -542,97 +552,102 @@ var ADDON_ID,
 									desc[0].setAttribute("text", desc[0].value);
 									desc[0].removeAttribute("value");
 									desc[0].style.whiteSpace = "pre-wrap";
-//											desc[0].lastChild.parentNode.removeChild(desc[0].lastChild);
 								}
 							}
-							numBox = $(document, "bfht_num").boxObject.lastChild.firstChild;
+							numBox = $("bfht_num").boxObject.lastChild.firstChild;
 							replace_validateValue(numBox);
-							$(document, "bfht_num").value = bfht.prefs.num.value;
-							listen(window, $(document, "bfht_num"), "change", function(e)
+							$("bfht_num").value = bfht.prefs.num.value;
+							numChange = function(e)
 							{
 								e.target.value = bfht.numCheck(e.target.value, e.target.prev[0]);
 								e.target.boxObject.lastChild.boxObject.firstChild.select();
-							}, true);
-
-							var desc = $(document, "bfht_showChangesLog").boxObject.firstChild.getElementsByClassName("preferences-title");
-							if (desc.length)
-							{
-								let l = document.createElement("label");
-								l.appendChild(desc[0].firstChild);
-								$(document, "bfht_showChangesLog_button").setAttribute("value", _("options.showChangesLog.button"));
-								l.appendChild($(document, "bfht_showChangesLog_button"));
-								desc[0].appendChild(l);
-								desc[0].className += " childlabel";
-							}
-							node = $(document, "bfht_reset").boxObject.firstChild.getElementsByClassName("preferences-description");
-							if (node.length)
-							{
-								let l = document.createElement("label");
-								l.appendChild($(document, "bfht_reset_button"));
-								node[0].parentNode.insertBefore(l, node[0]);
 							}
 
-							$(document, "bfht_support").setAttribute("title", _("options.support"));
-							node = $(document, "bfht_support").boxObject.firstChild.getElementsByClassName("preferences-description");
-							if (node.length)
+							let node = $("bfht_showChangesLog").boxObject.firstChild.getElementsByClassName("preferences-title")[0];
+							if (!node.inited)
+							{
+								let l = document.createElement("label");
+								l.appendChild(node.firstChild);
+								$("bfht_showChangesLog_button").setAttribute("value", _("options.showChangesLog.button"));
+								l.appendChild($("bfht_showChangesLog_button"));
+								node.appendChild(l);
+								node.className += " childlabel";
+								node.inited = true;
+							}
+							node = $("bfht_reset").boxObject.firstChild.getElementsByClassName("preferences-description")[0];
+							if (!node.inited)
+							{
+								let l = document.createElement("label");
+								l.appendChild($("bfht_reset_button"));
+								node.parentNode.insertBefore(l, node);
+								node.inited = true;
+							}
+
+							$("bfht_support").setAttribute("title", _("options.support"));
+							node = $("bfht_support").boxObject.firstChild.getElementsByClassName("preferences-description")[0];
+							if (!node.inited)
 							{
 								let l = document.createElement("label"),
 										t = document.createElement("label");
 								t.appendChild(document.createTextNode("|"));
-								l.appendChild($(document, "bfht_homepage"));
+								l.appendChild($("bfht_homepage"));
 								l.appendChild(t);
-								l.appendChild($(document, "bfht_support_website"));
+								l.appendChild($("bfht_support_website"));
 								l.appendChild(t.cloneNode(true));
-								l.appendChild($(document, "bfht_support_email"));
-								node[0].appendChild(l);
+								l.appendChild($("bfht_support_email"));
+								node.appendChild(l);
+								node.inited = true;
 							}
-
 						}}, 0, Ci.nsITimer.TYPE_ONE_SHOT);
 						unload(timer.cancel, window);
 					}
 					else	// FF12+
 					{
-						let node = $(document, "bfht_showChangesLog").boxObject.firstChild.getElementsByClassName("preferences-title");
-						if (node.length)
+						let node = $("bfht_showChangesLog").boxObject.firstChild.getElementsByClassName("preferences-title")[0];
+						if (!node.inited)
 						{
 							let l = document.createElement("label");
-							l.appendChild(node[0].firstChild);
-							$(document, "bfht_showChangesLog_button").setAttribute("value", _("options.showChangesLog.button"));
-							l.appendChild($(document, "bfht_showChangesLog_button"));
-							node[0].appendChild(l);
-							node[0].className += " childlabel";
+							l.appendChild(node.firstChild);
+							$("bfht_showChangesLog_button").setAttribute("value", _("options.showChangesLog.button"));
+							l.appendChild($("bfht_showChangesLog_button"));
+							node.appendChild(l);
+							node.className += " childlabel";
+							node.inited = true;
 						}
-						$(document, "bfht_support").setAttribute("title", _("options.support"));
-						node = $(document, "bfht_support").boxObject.firstChild.getElementsByClassName("preferences-description");
-						if (node.length)
+						$("bfht_support").setAttribute("title", _("options.support"));
+						node = $("bfht_support").boxObject.firstChild.getElementsByClassName("preferences-description")[0];
+						if (!node.inited)
 						{
 							let l = document.createElement("label"),
 									t = document.createElement("label");
 //							t.className = "childlabel";
 							t.appendChild(document.createTextNode("|"));
-							l.appendChild($(document, "bfht_homepage"));
+							l.appendChild($("bfht_homepage"));
 							l.appendChild(t);
-							l.appendChild($(document, "bfht_support_website"));
+							l.appendChild($("bfht_support_website"));
 							l.appendChild(t.cloneNode(true));
-							l.appendChild($(document, "bfht_support_email"));
-							node[0].appendChild(l);
+							l.appendChild($("bfht_support_email"));
+							node.appendChild(l);
+							node.inited = true;
 						}
-						node = $(document, "bfht_reset").boxObject.firstChild.getElementsByClassName("preferences-description");
-						if (node.length)
+						node = $("bfht_reset").boxObject.firstChild.getElementsByClassName("preferences-description")[0];
+						if (!node.inited)
 						{
 							let l = document.createElement("label");
-							l.appendChild($(document, "bfht_reset_button"));
-							node[0].parentNode.insertBefore(l, node[0]);
+							l.appendChild($("bfht_reset_button"));
+							node.parentNode.insertBefore(l, node);
+							node.inited = true;
 						}
-						numBox = $(document, "bfht_num").input;
+						numBox = $("bfht_num").input;
 						replace_validateValue(numBox);
-						$(document, "bfht_num").value = bfht.prefs.num.value;
-						listen(window, $(document, "bfht_num"), "change", function(e)
+						$("bfht_num").value = bfht.prefs.num.value;
+						numChange = function(e)
 						{
 							e.target.value = bfht.numCheck(e.target.value, e.target.prev[0]);
 							e.target.input.select();
-						}, true);
+						}
 					} // FF12+
+					_listen(window, $("bfht_num"), "change", numChange, true);
 
 					// FF 10+ display information about addons taken from the web,
 					// that information is way too big to fit on the screen,
@@ -671,29 +686,29 @@ var ADDON_ID,
 
 						function showDesc(obj)
 						{
-							let node = $(document, "detail-fulldesc").parentNode,
-									c = $(document, "detail-view").getElementsByClassName("detail-view-container");
+							let node = $("detail-fulldesc").parentNode,
+									c = $("detail-view").getElementsByClassName("detail-view-container");
 							if (obj.getAttribute("state") == "collapsed")
 							{
 								changeNode(node, "height", "10em");
 								changeNode(node, "overflow", "auto");
-								$(document, "detail-fulldesc").setAttribute("full", false);
+								$("detail-fulldesc").setAttribute("full", false);
 							}
 							else
 							{
 								changeNode(node, "maxHeight", "");
 								changeNode(node, "height", "");
 								changeNode(node, "overflow", "");
-								$(document, "detail-fulldesc").setAttribute("full", true);
+								$("detail-fulldesc").setAttribute("full", true);
 							}
 						} //showDesc
 
-						if (!$(document, "detail-fulldesc-splitter"))
+						if (!$("detail-fulldesc-splitter"))
 						{
-							$(document, "detail-fulldesc").setAttribute("persist", "full");
+							$("detail-fulldesc").setAttribute("persist", "full");
 							timer2.init({observe: function()
 							{
-								let parent = $(document, "detail-desc").parentNode;
+								let parent = $("detail-desc").parentNode;
 								if (parent.boxObject.height < 100)
 									return;
 
@@ -704,18 +719,18 @@ var ADDON_ID,
 								splitter.appendChild(grippy);
 								splitterBox.appendChild(splitter);
 								splitter.setAttribute("collapse", "before");
-								splitter.setAttribute("state", $(document, "detail-fulldesc").getAttribute("full") == "true" ? "open" : "collapsed");
+								splitter.setAttribute("state", $("detail-fulldesc").getAttribute("full") == "true" ? "open" : "collapsed");
 								splitter.setAttribute("resizebefore", "closest");
 								splitter.setAttribute("resizeafter", "grow");
 								splitter.id = "detail-fulldesc-splitter";
 								splitter.style.cursor = "pointer";
 								parent.appendChild(vbox);
-								vbox.appendChild($(document, "detail-fulldesc"));
+								vbox.appendChild($("detail-fulldesc"));
 								parent.appendChild(splitterBox);
 
 								showDesc(splitter);
-								listen(window, grippy, "command", function(e){showDesc(e.target.parentNode)}, true);
-								listen(window, splitter, "click", function(e){if (e.originalTarget == splitter) grippy.click();}, false);
+								_listen(window, grippy, "command", function(e){showDesc(e.target.parentNode)}, true);
+								_listen(window, splitter, "click", function(e){if (e.originalTarget == splitter) grippy.click();}, false);
 								unload(function()
 								{
 									//we don't want remove persistant settings on browser shutdown
@@ -725,23 +740,54 @@ var ADDON_ID,
 									splitter.setAttribute("state", "open");
 									showDesc(splitter);
 									splitterBox.parentNode.removeChild(splitterBox);
-									parent.appendChild($(document, "detail-fulldesc"));
+									parent.appendChild($("detail-fulldesc"));
 									parent.removeChild(vbox);
-									$(document, "detail-fulldesc").removeAttribute("full");
-									$(document, "detail-fulldesc").removeAttribute("persist");
+									$("detail-fulldesc").removeAttribute("full");
+									$("detail-fulldesc").removeAttribute("persist");
 								}, window);
 							}}, 0, Ci.nsITimer.TYPE_ONE_SHOT);
 							unload(timer2.cancel, window);
 						} //detail-fulldesc-splitter
 					} //FF10+
+					_listen(window, $("bfht_link"), "command", Copy, false);
+					_listen(window, $("bfht_homepage"), "mouseover", mouseOver, false);
+					_listen(window, $("bfht_homepage"), "mouseout", mouseOut, false);
+					_listen(window, $("bfht_support_website"), "mouseover", mouseOver, false);
+					_listen(window, $("bfht_support_website"), "mouseout", mouseOut, false);
+					_listen(window, $("bfht_support_email"), "mouseover", mouseOver, false);
+					_listen(window, $("bfht_support_email"), "mouseout", mouseOut, false);
+					_listen(window, $("bfht_showChangesLog_button"), "click", function(e)
+					{
+						if (!e.button)
+							showChangesLog(window);
+					}, false);
 				} //end addonOptionsDisplayed.observe()
 			}; //end addonOptionsDisplayed
+			function _listen(window, obj, com, func, param)
+			{
+				if (!obj || obj["_____" + com])
+					return;
+
+				obj["_____" + com] = true;
+				let ret = listen(window, obj, com, func, param);
+				function undo()
+				{
+					delete obj.inited;
+				}
+				unload(undo, window);
+				return function()
+				{
+					ret();
+					undo();
+				};
+			} //listen()
+
 
 			function overflowInit()
 			{
 				function fixPopup(id)
 				{
-					var menupopup = $(document, id);
+					var menupopup = $(id);
 					if (menupopup.tagName != "menupopup")
 						menupopup = menupopup.firstChild;
 
@@ -754,7 +800,7 @@ var ADDON_ID,
 
 						if (!menupopup.hasStatusListener2) {
 							// Show history item's uri in the status bar when hovering, and clear on exit
-							listen(window, menupopup, "DOMMenuItemActive", function(aEvent)
+							_listen(window, menupopup, "DOMMenuItemActive", function(aEvent)
 							{
 								if (bfht.prefs.showItem.value == SHOW_TITLE_HOVER || bfht.prefs.showItem.value == SHOW_URL_HOVER)
 									aEvent.target.setAttribute("label", aEvent.target._label2);
@@ -763,7 +809,7 @@ var ADDON_ID,
 								if (!aEvent.target.hasAttribute("checked"))
 									XULBrowserWindow.setOverLink(aEvent.target.getAttribute("uri"));
 							}, false);
-							listen(window, menupopup, "DOMMenuItemInactive", function(aEvent)
+							_listen(window, menupopup, "DOMMenuItemInactive", function(aEvent)
 							{
 								if (bfht.prefs.showItem.value == SHOW_TITLE_HOVER || bfht.prefs.showItem.value == SHOW_URL_HOVER)
 									aEvent.target.setAttribute("label", aEvent.target._label);
@@ -1053,12 +1099,12 @@ function FillHistoryMenu(aParent) {
 					var changesLogTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer)
 					changesLogTimer.init({observe: function()
 					{
-						showChangesLog();
+						showChangesLog(window);
 					}}, 1000, changesLogTimer.TYPE_ONE_SHOT);
 					unload(changesLogTimer.cancel, window);
 				}
 			}
-			listen(window, window, "unload", cleanup, false);
+			_listen(window, window, "unload", cleanup, false);
 			unload(cleanup, window);
 		}, "navigator:browser"); //end watchWindows
 	}, //end bfht.init()
@@ -1069,7 +1115,7 @@ function include(path)
 	Services.scriptloader.loadSubScript(addon.getResourceURI(path).spec, self);
 }
 
-function $(node, childId)
+function _$(node, childId)
 {
 	if (node.getElementById)
 		return node.getElementById(childId);

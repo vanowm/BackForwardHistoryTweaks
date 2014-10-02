@@ -1,8 +1,15 @@
-<!ENTITY changesLog.title "Changes log">
-<!ENTITY changesLog.support.title "Contact info:">
-<!ENTITY changesLog.support "Bug reports and feature requests please submit at">
-<!ENTITY changesLog.support.website "support site">
-<!ENTITY changesLog.support.via "or via">
-<!ENTITY changesLog.support.email "email">
-<!ENTITY changesLog.more "More info at">
-<!ENTITY changesLog.here "homepage">
+<!ENTITY changesLog.title 									"Changes log">
+<!ENTITY changesLog.support.title 					"Contact info:">
+<!ENTITY changesLog.support 								"Bug reports and feature requests please submit at">
+<!ENTITY changesLog.support.website 				"support site">
+<!ENTITY changesLog.support.via 						"or via">
+<!ENTITY changesLog.support.email 					"email">
+<!ENTITY changesLog.more 										"More info at">
+<!ENTITY changesLog.here 										"homepage">
+<!ENTITY changesLog.menu.showOnUpdates 			"Show after updates">
+<!ENTITY changesLog.menu.showOnUpdates.desc "Show this changes log after each update">
+<!ENTITY changesLog.menu.legend 						"Legend">
+<!ENTITY changesLog.menu.wrap								"Wrap">
+<!ENTITY changesLog.menu.hightlight 				"Hightlight">
+<!ENTITY changesLog.options									"Options">
+

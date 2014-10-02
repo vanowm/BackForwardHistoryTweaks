@@ -133,6 +133,27 @@ var changesLog = {
 		document.getElementById("changesLog").setAttribute("highlight", val)
 	},
 
+	legend: function(e)
+	{
+		let val = Number(document.getElementById("changesLogLegend").getAttribute("value"))+1;
+		if (val > 1 || val < 0)
+			val = 0;
+		document.getElementById("changesLogLegend").setAttribute("value", val);
+		this.showLegend();
+	},
+
+	showLegend: function()
+	{
+		let c = document.getElementById("changesLogLegend");
+		let val = Number(c.getAttribute("value"));
+		if (val == 1)
+			c.setAttribute("checked", true);
+		else
+			c.removeAttribute("checked");
+
+		document.getElementById("changesLog").setAttribute("legend", val)
+	},
+
 	wrap: function(e)
 	{
 		let val = Number(document.getElementById("changesLogWrap").getAttribute("value"))+1;
@@ -164,7 +185,7 @@ var changesLog = {
 		this.onResize();
 	},
 
-	changesLog: function(e)
+	showOnUpdates: function(e)
 	{
 		
 		this.prefChangesLog = !this.prefChangesLog;
@@ -174,7 +195,7 @@ var changesLog = {
 
 	showChangesLog: function()
 	{
-		let c = document.getElementById("changesLogShowUpdates")
+		let c = document.getElementById("changesLogShowOnUpdates")
 		if (this.prefChangesLog)
 		{
 			c.setAttribute("checked", true);
@@ -188,7 +209,11 @@ var changesLog = {
 	onResize: function ()
 	{
 		let hbox = document.getElementsByAttribute("line", ""),
-				height = document.getElementById("changesLog").firstChild.boxObject.height;
+				height = document.getElementById("bfhtFirst");
+		if (!height)
+			return;
+
+		height = height.firstChild.boxObject.height;
 		for(let i = 0; i < hbox.length; i++)
 		{
 			if (hbox[i].boxObject.height - height > height / 2)
@@ -290,7 +315,9 @@ var changesLog = {
 		title = str.substr(0, str.indexOf("\n"));
 		str = str.replace(title, "").replace(/^\s+/g, "");
 		array = str.split("\n");
-		let prevhbox = null;
+		let prevhbox = null,
+				isLegend = true,
+				legendBox = null;
 		for(let i = 0; i < array.length; i++)
 		{
 			let t = /^(\s*)([+\-*!])/.exec(array[i]),
@@ -308,7 +335,6 @@ var changesLog = {
 			vbox.setAttribute("flex", 1);
 			type.className = "type";
 			tab.className = "tab";
-			hbox.setAttribute("line", "");
 			if (t)
 			{
 				tab.textContent = t[1];
@@ -345,8 +371,16 @@ var changesLog = {
 					label.className += " border";
 				}
 			}
-			else if (array[i].match(/^v[0-9]/))
+			else if (array[i].match(/^v[0-9]+/))
 			{
+				if (isLegend)
+				{
+					hbox.id = "bfhtFirst";
+					if (legendBox)
+						legendBox.className += " border";
+				}
+
+				isLegend = false;
 				if (prevhbox)
 				{
 					prevhbox.className += " last";
@@ -360,6 +394,14 @@ var changesLog = {
 			}
 			if (array[i].length > 1 && prevhbox !== null)
 				prevhbox = hbox;
+
+			if (isLegend)
+			{
+				hbox.className += " legend";
+				legendBox = hbox;
+			}
+			else
+				hbox.setAttribute("line", "");
 
 			label.textContent = array[i].substr(txt).trim();
 			vbox.appendChild(label)
@@ -377,6 +419,7 @@ var changesLog = {
 			document.getElementById("changesLogBox").setAttribute("window", true);
 		}
 
+		this.showLegend();
 		this.showHighlight();
 		this.showWrap();
 		this.showChangesLog();

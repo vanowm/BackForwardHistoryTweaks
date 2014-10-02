@@ -58,10 +58,10 @@
 <!-- all other objects that will be moved to proper places later -->
 	<setting collapsed="true">
 		<button id="bfht_reset_button"/>
-		<label id="bfht_homepage" class="text-link childlabel"/>
-		<label id="bfht_support_website" class="text-link childlabel"/>
-		<label id="bfht_support_email" class="text-link childlabel"/>
-		<label id="bfht_showChangesLog_button" class="text-link childlabel"/>
+		<label id="bfht_homepage" class="text-link childlabel">Homepage</label>
+		<label id="bfht_support_website" class="text-link childlabel">Support site</label>
+		<label id="bfht_support_email" class="text-link childlabel">Email</label>
+		<label id="bfht_showChangesLog_button" class="text-link childlabel">Changes log</label>
 		<menuitem id="bfht_copy" label="&copyCmd.label;" accesskey="&copyCmd.accesskey;"/>
 	</setting>
 </vbox>
