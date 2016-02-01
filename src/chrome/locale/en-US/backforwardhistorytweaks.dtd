@@ -13,3 +13,44 @@
 <!ENTITY changesLog.menu.hightlight 				"Hightlight">
 <!ENTITY changesLog.options									"Options">
 
+<!ENTITY options.overflow										"Overflow">
+<!ENTITY options.overflow.desc							"Allow scrolling if number of history items is larger then shown on screen.">
+<!ENTITY options.overflow.0									"Default">
+<!ENTITY options.overflow.1									"Scroll bars">
+<!ENTITY options.overflow.2									"Up/Down buttons">
+<!ENTITY options.num												"Number of items to show">
+<!ENTITY options.num.desc										"How many history items display on screen\n0 = as many fits on screen.">
+<!ENTITY options.showIndex									"Show item's index number">
+<!ENTITY options.showIndex.desc							"At what position in the list the item is.\nUseful if list has more items then fits in the menu window.">
+<!ENTITY options.showIndex.0								"none">
+<!ENTITY options.showIndex.1								"Before name">
+<!ENTITY options.showIndex.2								"After name">
+<!ENTITY options.showIndexTotal							"Show number of total items">
+<!ENTITY options.showIndexTotal.desc				"Only applied when index numbers shown">
+<!ENTITY options.showItem										"Show items as">
+<!ENTITY options.showItem.0									"Title">
+<!ENTITY options.showItem.1									"URL">
+<!ENTITY options.showItem.2									"Title, URL on hover">
+<!ENTITY options.showItem.3									"URL, Title on hover">
+<!ENTITY options.tooltip										"Show tooltip">
+<!ENTITY options.tooltip.0									"Default">
+<!ENTITY options.tooltip.1									"Title">
+<!ENTITY options.tooltip.2									"URL">
+<!ENTITY options.tooltip.3									"Title and URL">
+<!ENTITY options.order											"List order">
+<!ENTITY options.order.desc									"Descending (default) will show &quot;back&quot; items below and &quot;forward&quot; above the current item. Ascending will reverse the order.">
+<!ENTITY options.order.0										"Ascending">
+<!ENTITY options.order.1										"Descending">
+<!ENTITY options.showChangesLog							"Show">
+<!ENTITY options.showChangesLog.desc				"Show changes log after each update.">
+<!ENTITY options.showChangesLog.button			"changes log">
+<!ENTITY options.combine										"Combine back and forward lists">
+<!ENTITY options.combine.desc								"Show both back and forward items in the list">
+<!ENTITY options.reset											"Reset all">
+<!ENTITY options.reset.desc									"Reset settings to default">
+<!ENTITY options.support										"Contact">
+<!ENTITY options.support.website						"Support site">
+<!ENTITY options.support.email							"Email">
+<!ENTITY options.homepage 									"Homepage">
+<!ENTITY all							 									"All">
+<!ENTITY confirm					 									"Are You sure?">

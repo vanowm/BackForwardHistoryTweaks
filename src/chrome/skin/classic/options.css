@@ -1,0 +1,55 @@
+.childlabel
+{
+	margin: 0 !important;
+}
+
+#bfht_showChangesLog_button
+{
+	margin-left: 0.3em !important;
+}
+
+#bfht_reset_button
+{
+	margin-left: 2em !important;
+}
+
+menuitem[default="true"]
+{
+	font-weight: 900;
+}
+
+menupopup[hide],
+menupopup[hide] *
+{
+	visibility: hidden !important;
+	opacity: 0 !important;
+}
+
+#bfht_firstRow
+{
+	margin-top: 0.5em !important;
+	min-height: 0 !important;
+	max-height: 0 !important;
+}
+
+#bfht_firstRow *
+{
+	display: none !important;
+}
+
+.bfht .checkbox-label-box
+{
+  border: 1px dotted transparent !important;
+  outline: none !important;
+}
+
+.bfht checkbox:focus .checkbox-check,
+label.bfht.text-link:focus
+{
+  outline: 1px dotted !important;
+}
+
+#bfht_reset_button
+{
+	margin-left: 0 !important;
+}

@@ -7,6 +7,12 @@ Legend:
 * = Changed
 - = Removed
 
+v1.1.2 (2016-02-01)
+	- support for FF 12 and older
+	! FF 44 compatibility
+	! popups shown/blink on browser start
+	! Tab Mix Plus support
+
 v1.1.1 (2014-10-02)
 	+ changes log can be access from options
 	+ links to support website/email in addon's options

@@ -64,36 +64,36 @@
  * @return [string]: Localized string of the correct plural form.
  */
 function getString(name, args, plural) {
-  // Use the cached bundle to retrieve the string
-  let str;
-  try {
-    str = getString.bundle.GetStringFromName(name);
-  }
-  // Use the fallback in-case the string isn't localized
-  catch(ex) {
-    str = getString.fallback.GetStringFromName(name);
-  }
+	// Use the cached bundle to retrieve the string
+	let str;
+	try {
+		str = getString.bundle.GetStringFromName(name);
+	}
+	// Use the fallback in-case the string isn't localized
+	catch(ex) {
+		str = getString.fallback.GetStringFromName(name);
+	}
 
-  // Pick out the correct plural form if necessary
-  if (plural != null)
-    str = getString.plural(plural, str);
+	// Pick out the correct plural form if necessary
+	if (plural != null)
+		str = getString.plural(plural, str);
 
-  // Fill in the arguments if necessary
-  if (args != null) {
-    // Convert a string or something not array-like to an array
-    if (typeof args == "string" || args.length == null)
-      args = [args];
+	// Fill in the arguments if necessary
+	if (args != null) {
+		// Convert a string or something not array-like to an array
+		if (typeof args == "string" || args.length == null)
+			args = [args];
 
-    // Assume %S refers to the first argument
-    str = str.replace(/%s/gi, args[0]);
+		// Assume %S refers to the first argument
+		str = str.replace(/%s/gi, args[0]);
 
-    // Replace instances of %N$S where N is a 1-based number
-    Array.forEach(args, function(replacement, index) {
-      str = str.replace(RegExp("%" + (index + 1) + "\\$S", "gi"), replacement);
-    });
-  }
+		// Replace instances of %N$S where N is a 1-based number
+		Array.forEach(args, function(replacement, index) {
+			str = str.replace(RegExp("%" + (index + 1) + "\\$S", "gi"), replacement);
+		});
+	}
 
-  return str;
+	return str;
 }
 
 /**
@@ -107,63 +107,63 @@ function getString(name, args, plural) {
  * @param [function] getAlternate: Convert a locale to an alternate locale
  */
 getString.init = function(addon, getAlternate) {
-  // Set a default get alternate function if it doesn't exist
-  if (typeof getAlternate != "function")
-    getAlternate = function() "en-US";
+	// Set a default get alternate function if it doesn't exist
+	if (typeof getAlternate != "function")
+		getAlternate = function(){"en-US"};
 
-  // Get the bundled properties file for the app's locale
-  function getBundle(locale) {
-    let propertyPath = "chrome/locale/" + locale + ".properties";
-    let propertyFile = addon.getResourceURI(propertyPath);
+	// Get the bundled properties file for the app's locale
+	function getBundle(locale) {
+		let propertyPath = "chrome/locale/" + locale + ".properties";
+		let propertyFile = addon.getResourceURI(propertyPath);
 
-    // Get a bundle and test if it's able to do simple things
-    try {
-      let bundle = Services.strings.createBundle(propertyFile.spec);
-      bundle.getSimpleEnumeration();
-      return bundle;
-    }
-    catch(ex) {}
+		// Get a bundle and test if it's able to do simple things
+		try {
+			let bundle = Services.strings.createBundle(propertyFile.spec);
+			bundle.getSimpleEnumeration();
+			return bundle;
+		}
+		catch(ex) {}
 
-    // The locale must not exist, so give nothing
-    return null;
-  }
+		// The locale must not exist, so give nothing
+		return null;
+	}
 
-  // Use the current locale or the alternate as the primary bundle
-  let locale = Cc["@mozilla.org/chrome/chrome-registry;1"].
-    getService(Ci.nsIXULChromeRegistry).getSelectedLocale("global");
-  getString.bundle = getBundle(locale) || getBundle(getAlternate(locale));
+	// Use the current locale or the alternate as the primary bundle
+	let locale = Cc["@mozilla.org/chrome/chrome-registry;1"].
+		getService(Ci.nsIXULChromeRegistry).getSelectedLocale("global");
+	getString.bundle = getBundle(locale) || getBundle(getAlternate(locale));
 
-  // Create a fallback in-case a string is missing
-  getString.fallback = getBundle("en-US");
+	// Create a fallback in-case a string is missing
+	getString.fallback = getBundle("en-US");
 
-  // Get the appropriate plural form getter
-  Cu.import("resource://gre/modules/PluralForm.jsm");
-  let rule = getString("pluralRule");
-  [getString.plural] = PluralForm.makeGetter(rule);
+	// Get the appropriate plural form getter
+	Cu.import("resource://gre/modules/PluralForm.jsm");
+	let rule = getString("pluralRule");
+	[getString.plural] = PluralForm.makeGetter(rule);
 
-  // Clear out the strings cache when cleaning up so new ones load
-  unload(function() Services.strings.flushBundles());
+	// Clear out the strings cache when cleaning up so new ones load
+	unload(function(){Services.strings.flushBundles()});
 }
 
 /**
  * Helper that adds event listeners and remembers to remove on unload
  */
 function listen(window, node, event, func, capture) {
-  // Default to use capture
-  if (capture == null)
-    capture = true;
+	// Default to use capture
+	if (capture == null)
+		capture = true;
 
-  node.addEventListener(event, func, capture);
-  function undoListen() {
-    node.removeEventListener(event, func, capture);
-  }
+	node.addEventListener(event, func, capture);
+	function undoListen() {
+		node.removeEventListener(event, func, capture);
+	}
 
-  // Undo the listener on unload and provide a way to undo everything
-  let undoUnload = unload(undoListen, window);
-  return function() {
-    undoListen();
-    undoUnload();
-  };
+	// Undo the listener on unload and provide a way to undo everything
+	let undoUnload = unload(undoListen, window);
+	return function() {
+		undoListen();
+		undoUnload();
+	};
 }
 
 /**
@@ -173,52 +173,80 @@ function listen(window, node, event, func, capture) {
  * @param [object] addon: Add-on object from AddonManager
  * @param [array of strings] styles: Style files to load
  */
-function loadStyles(addon, styles) {
-  let sss = Cc["@mozilla.org/content/style-sheet-service;1"].
-            getService(Ci.nsIStyleSheetService);
-  let ios = Components.classes["@mozilla.org/network/io-service;1"]
-                  .getService(Components.interfaces.nsIIOService);
-  styles.forEach(function(fileName) {
-    let fileURI = addon.getResourceURI("chrome/skin/classic/" + fileName + ".css");
+function loadStyles(styles) {
+	let sss = Cc["@mozilla.org/content/style-sheet-service;1"]
+						.getService(Ci.nsIStyleSheetService),
+			ios = Cc["@mozilla.org/network/io-service;1"]
+						.getService(Components.interfaces.nsIIOService),
+			list = [];
+	styles.forEach(function(fileName)
+	{
+		let fileURI = addon.getResourceURI("chrome/skin/classic/" + fileName + ".css");
 		fileURI = ios.newURI(fileURI.spec, null, null);
-    sss.loadAndRegisterSheet(fileURI, sss.USER_SHEET);
-    unload(function() sss.unregisterSheet(fileURI, sss.USER_SHEET));
-  });
+		if (!sss.sheetRegistered(fileURI, sss.USER_SHEET))
+		{
+			sss.loadAndRegisterSheet(fileURI, sss.USER_SHEET);
+			list.push(fileName);
+		}
+	});
+	if (list.length)
+	{
+		unload(function()
+		{
+			unloadStyles(list);
+		});
+	}
 }
+function unloadStyles(styles)
+{
+	let sss = Cc["@mozilla.org/content/style-sheet-service;1"]
+						.getService(Ci.nsIStyleSheetService),
+			ios = Cc["@mozilla.org/network/io-service;1"]
+						.getService(Components.interfaces.nsIIOService);
+	styles.forEach(function(fileName)
+	{
+		let fileURI = addon.getResourceURI("chrome/skin/classic/" + fileName + ".css");
+		fileURI = ios.newURI(fileURI.spec, null, null);
+		if (sss.sheetRegistered(fileURI, sss.USER_SHEET))
+			sss.unregisterSheet(fileURI, sss.USER_SHEET);
+
+	});
+}
+
 
 /**
  * Create a trigger that allows adding callbacks by default then triggering all
  * of them.
  */
 function makeTrigger() {
-  let callbacks = [];
+	let callbacks = [];
 
-  // Provide the main function to add callbacks that can be removed
-  function addCallback(callback) {
-    callbacks.push(callback);
-    return function() {
-      let index = callbacks.indexOf(callback);
-      if (index != -1)
-        callbacks.splice(index, 1);
-    };
-  }
+	// Provide the main function to add callbacks that can be removed
+	function addCallback(callback) {
+		callbacks.push(callback);
+		return function() {
+			let index = callbacks.indexOf(callback);
+			if (index != -1)
+				callbacks.splice(index, 1);
+		};
+	}
 
-  // Provide a way to clear out all the callbacks
-  addCallback.reset = function() {
-    callbacks.length = 0;
-  };
+	// Provide a way to clear out all the callbacks
+	addCallback.reset = function() {
+		callbacks.length = 0;
+	};
 
-  // Run each callback in order ignoring failures
-  addCallback.trigger = function(reason) {
-    callbacks.slice().forEach(function(callback) {
-      try {
-        callback(reason);
-      }
-      catch(ex) {}
-    });
-  };
+	// Run each callback in order ignoring failures
+	addCallback.trigger = function(reason) {
+		callbacks.slice().forEach(function(callback) {
+			try {
+				callback(reason);
+			}
+			catch(ex) {}
+		});
+	};
 
-  return addCallback;
+	return addCallback;
 }
 
 
@@ -238,47 +266,47 @@ function makeTrigger() {
  * @return [function]: A 0-parameter function that undoes adding the callback.
  */
 function unload(callback, container) {
-  // Initialize the array of unloaders on the first usage
-  let unloaders = unload.unloaders;
-  if (unloaders == null)
-    unloaders = unload.unloaders = [];
+	// Initialize the array of unloaders on the first usage
+	let unloaders = unload.unloaders;
+	if (unloaders == null)
+		unloaders = unload.unloaders = [];
 
-  // Calling with no arguments runs all the unloader callbacks
-  if (callback == null) {
-    unloaders.slice().forEach(function(unloader) unloader());
-    unloaders.length = 0;
-    return;
-  }
+	// Calling with no arguments runs all the unloader callbacks
+	if (callback == null) {
+		unloaders.slice().forEach(function(unloader){unloader()});
+		unloaders.length = 0;
+		return;
+	}
 
-  // The callback is bound to the lifetime of the container if we have one
-  if (container != null) {
-    // Remove the unloader when the container unloads
-    container.addEventListener("unload", removeUnloader, false);
+	// The callback is bound to the lifetime of the container if we have one
+	if (container != null) {
+		// Remove the unloader when the container unloads
+		container.addEventListener("unload", removeUnloader, false);
 
-    // Wrap the callback to additionally remove the unload listener
-    let origCallback = callback;
-    callback = function() {
-      container.removeEventListener("unload", removeUnloader, false);
-      origCallback();
-    }
-  }
+		// Wrap the callback to additionally remove the unload listener
+		let origCallback = callback;
+		callback = function() {
+			container.removeEventListener("unload", removeUnloader, false);
+			origCallback();
+		}
+	}
 
-  // Wrap the callback in a function that ignores failures
-  function unloader() {
-    try {
-      callback();
-    }
-    catch(ex) {}
-  }
-  unloaders.push(unloader);
+	// Wrap the callback in a function that ignores failures
+	function unloader() {
+		try {
+			callback();
+		}
+		catch(ex) {}
+	}
+	unloaders.push(unloader);
 
-  // Provide a way to remove the unloader
-  function removeUnloader() {
-    let index = unloaders.indexOf(unloader);
-    if (index != -1)
-      unloaders.splice(index, 1);
-  }
-  return removeUnloader;
+	// Provide a way to remove the unloader
+	function removeUnloader() {
+		let index = unloaders.indexOf(unloader);
+		if (index != -1)
+			unloaders.splice(index, 1);
+	}
+	return removeUnloader;
 }
 
 /**
@@ -288,51 +316,51 @@ function unload(callback, container) {
  * @param [function] callback: 1-parameter function that gets a browser window.
  */
 function watchWindows(callback) {
-  var unloaded = false;
-  unload(function() unloaded = true);
+	var unloaded = false;
+	unload(function(){unloaded = true});
 
-  // Wrap the callback in a function that ignores failures
-  function watcher(window, type) {
-    try {
-      // Now that the window has loaded, only handle browser windows
-      let {documentElement} = window.document;
-      if (documentElement.getAttribute("windowtype") == "navigator:browser")
-        callback(window, type);
-    }
-    catch(ex) {}
-  }
+	// Wrap the callback in a function that ignores failures
+	function watcher(window, type) {
+		try {
+			// Now that the window has loaded, only handle browser windows
+			let {documentElement} = window.document;
+			if (documentElement.getAttribute("windowtype") == "navigator:browser")
+				callback(window, type);
+		}
+		catch(ex) {}
+	}
 
-  // Wait for the window to finish loading before running the callback
-  function runOnLoad(window) {
-    // Listen for one load event before checking the window type
-    window.addEventListener("load", function runOnce() {
-      window.removeEventListener("load", runOnce, false);
-      if (unloaded) return; // the extension has shutdown
-      watcher(window, "load");
-    }, false);
-  }
+	// Wait for the window to finish loading before running the callback
+	function runOnLoad(window) {
+		// Listen for one load event before checking the window type
+		window.addEventListener("load", function runOnce() {
+			window.removeEventListener("load", runOnce, false);
+			if (unloaded) return; // the extension has shutdown
+			watcher(window, "load");
+		}, false);
+	}
 
-  // Add functionality to existing windows
-  let windows = Services.wm.getEnumerator(null);
-  while (windows.hasMoreElements()) {
-    // Only run the watcher immediately if the window is completely loaded
-    let window = windows.getNext();
-    if (window.document.readyState == "complete")
-      watcher(window);
-    // Wait for the window to load before continuing
-    else
-      runOnLoad(window);
-  }
+	// Add functionality to existing windows
+	let windows = Services.wm.getEnumerator(null);
+	while (windows.hasMoreElements()) {
+		// Only run the watcher immediately if the window is completely loaded
+		let window = windows.getNext();
+		if (window.document.readyState == "complete")
+			watcher(window);
+		// Wait for the window to load before continuing
+		else
+			runOnLoad(window);
+	}
 
-  // Watch for new browser windows opening then wait for it to load
-  function windowWatcher(subject, topic) {
-    if (topic == "domwindowopened")
-      runOnLoad(subject);
-  }
-  Services.ww.registerNotification(windowWatcher);
+	// Watch for new browser windows opening then wait for it to load
+	function windowWatcher(subject, topic) {
+		if (topic == "domwindowopened")
+			runOnLoad(subject);
+	}
+	Services.ww.registerNotification(windowWatcher);
 
-  // Make sure to stop watching for windows if we're unloading
-  unload(function() Services.ww.unregisterNotification(windowWatcher));
+	// Make sure to stop watching for windows if we're unloading
+	unload(function(){Services.ww.unregisterNotification(windowWatcher)});
 }
 
 //changes an array object changeObject("key1.key2.key3", "newval", {key1: {key2: {key3: "test"}}})
@@ -348,3 +376,20 @@ function changeObject(key, val, obj)
 	obj[split[0]] = val;
 	return prev;
 }
+
+function async(callback, time, timer)
+{
+	if (timer)
+		timer.cancel();
+	else
+		timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+
+	let clean = unload(timer.cancel);
+	timer.init({observe:function()
+	{
+		timer.cancel();
+		callback();
+		clean();
+	}}, time || 0, timer.TYPE_ONE_SHOT);
+	return timer;
+}//async()
