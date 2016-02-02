@@ -16,11 +16,6 @@ var   {classes: Cc, interfaces: Ci, utils: Cu} = Components,
 			SHOW_URL_HOVER = 3;
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/AddonManager.jsm");
-try
-{
-	Cu.import("resource:///modules/sessionstore/SessionStore.jsm");
-}catch(e){}
-
 var ADDON_ID,
 	addon = {},
 	self = this,
@@ -334,47 +329,8 @@ for (var i = children.length - 1; i >= 0; --i) {
   if (children[i].hasAttribute("index"))
     aParent.removeChild(children[i]);
 }
-//e10 support
-if (typeof(SessionStore) == "object" && "getSessionHistory" in SessionStore)
-{
-	let e = SessionStore.getSessionHistory(window.gBrowser.selectedTab),
-			nsURI = Cc["@mozilla.org/network/io-service;1"]
-								.getService(Ci.nsIIOService);
-	for(let i = 0; i < e.entries.length; i++)
-	{
-		e.entries[i].URI = nsURI.newURI(e.entries[i].url, e.entries[i].charset, null);
-		if (typeof(e.entries[i].title) == "undefined")
-			e.entries[i].title = e.entries[i].url;
-	}
-	
-	var sessionHistory = {
-		history: e,
-		getEntryAtIndex: function(i)
-		{
-			if (this.history.entries[i])
-				return this.history.entries[i];
-			return null;
-		},
-		getIndexOfEntry: function(e)
-		{
-			return this.history.entries.indexOf(e);
-		},
-		get count()
-		{
-			return this.history.entries.length;
-		},
-		get index()
-		{
-			return this.history.index;
-		}
-	}
-}
-else
-{
 var webNav = window.gBrowser.webNavigation;//getWebNavigation();
-var sessionHistory = webNav.sessionHistory;
-}
-
+var sessionHistory = window.gBrowser.sessionHistory;
 var count = sessionHistory.count;
 if (count <= 1) // don't display the popup for a single item
   return false;
@@ -412,7 +368,6 @@ else
 	end = startBackup;
 	j = end;
 }
-
 if (bfht.prefs.overflow.value == OVERFLOW_SCROLL)
 	aParent.setAttribute("scrollbars", true);
 else
@@ -493,7 +448,7 @@ do
 	{
 		case bfht.SHOW_TITLE:
 		case bfht.SHOW_TITLE_HOVER:
-				item._label = TMP_compat(entry) || entry.title;
+				item._label = TMP_compat(entry) || uri;
 				item._label2 = uri;
 			break;
 		case bfht.SHOW_URL:

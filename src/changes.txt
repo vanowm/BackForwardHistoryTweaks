@@ -7,11 +7,6 @@ Legend:
 * = Changed
 - = Removed
 
-v1.1.3 (2016-02-01)
-	+ multi-process (e10s) support
-	+ FF 47 compatibility
-	! URL shown instead of title when Tab Mix Plus is installed.
-
 v1.1.2 (2016-02-01)
 	- support for FF 12 and older
 	! FF 44 compatibility
