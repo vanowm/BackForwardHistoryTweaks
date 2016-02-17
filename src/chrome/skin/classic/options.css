@@ -18,13 +18,6 @@ menuitem[default="true"]
 	font-weight: 900;
 }
 
-menupopup[hide],
-menupopup[hide] *
-{
-	visibility: hidden !important;
-	opacity: 0 !important;
-}
-
 #bfht_firstRow
 {
 	margin-top: 0.5em !important;
@@ -52,4 +45,23 @@ label.bfht.text-link:focus
 #bfht_reset_button
 {
 	margin-left: 0 !important;
+}
+
+/*
+#bfht_changesLog
+{
+	-moz-appearance: menulist-button !important;
+}
+*/
+#bfht_changesLog checkbox
+{
+	margin: 0.1em !important;
+}
+#bfht_changesLog .dropmarker-icon
+{
+	list-style-image: url("chrome://global/skin/arrow/arrow-dn.gif");
+}
+#bfht_changesLog
+{
+	list-style-image: none;
 }

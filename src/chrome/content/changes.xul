@@ -60,7 +60,7 @@
 						<checkbox id="changesLogHightlight" label="&changesLog.menu.hightlight;" value="1" persist="value" oncommand="changesLog.highlight(event);"/>
 						<checkbox id="changesLogWrap" label="&changesLog.menu.wrap;" value="1" persist="value" oncommand="changesLog.wrap(event);"/>
 						<checkbox id="changesLogLegend" label="&changesLog.menu.legend;" value="1" persist="value" oncommand="changesLog.legend(event);"/>
-						<checkbox id="changesLogShowOnUpdates" label="&changesLog.menu.showOnUpdates;" oncommand="changesLog.showOnUpdates(event);" tooltiptext="&changesLog.menu.showOnUpdates.desc;"/>
+						<button label="&changesLog.options.addon;" oncommand="changesLog.openOptions(event)"/>
 					</vbox>
 				</panel>
 			</button>

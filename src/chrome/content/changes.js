@@ -4,7 +4,6 @@ Cu.import("resource://gre/modules/AddonManager.jsm");
 var changesLog = {
 	addon: null,
 	pref: Services.prefs.getBranch("extensions.backforwardhistorytweaks."),
-	prefChangesLog: false,
 
 	decode: function(t)
 	{
@@ -185,25 +184,10 @@ var changesLog = {
 		this.onResize();
 	},
 
-	showOnUpdates: function(e)
+	openOptions: function()
 	{
-		
-		this.prefChangesLog = !this.prefChangesLog;
-		this.pref.setBoolPref("showChangesLog", this.prefChangesLog);
-		this.showChangesLog();
-	},
-
-	showChangesLog: function()
-	{
-		let c = document.getElementById("changesLogShowOnUpdates")
-		if (this.prefChangesLog)
-		{
-			c.setAttribute("checked", true);
-		}
-		else
-		{
-			c.removeAttribute("checked");
-		}
+		Components.utils.import('resource://gre/modules/Services.jsm');
+		Services.wm.getMostRecentWindow('navigator:browser').BrowserOpenAddonsMgr("addons://detail/" + changesLog.addon.id + "/preferences");
 	},
 
 	onResize: function ()
@@ -253,17 +237,6 @@ var changesLog = {
 		return url;
 	}, //fixUrl()
 
-	onPrefChange: {
-		observe: function(pref, aTopic, key)
-		{
-			if(aTopic != "nsPref:changed" || key != "showChangesLog")
-				return;
-
-			changesLog.prefChangesLog = pref.getBoolPref(key);
-			changesLog.showChangesLog();
-		}
-	}, //onPrefChange()
-
 	init: function()
 	{
 		let changesLogObj = document.getElementById("changesLog"),
@@ -276,10 +249,7 @@ var changesLog = {
 											.getService(Components.interfaces.nsIScriptableInputStream),
 				channel = ioService.newChannel(aURL,null,null),
 				array,
-				title,
-				addObserver = this.pref.addObserver || this.pref.QueryInterface(Ci.nsIPrefBranch2).addObserver;
-		addObserver('', this.onPrefChange, false);
-		this.prefChangesLog = this.pref.getBoolPref("showChangesLog");
+				title;
 		document.title = this.addon.name + " " + document.getElementById("changesLogTitle").value;
 		document.getElementById("changesLogTitle").value = document.title;
 
@@ -422,7 +392,6 @@ var changesLog = {
 		this.showLegend();
 		this.showHighlight();
 		this.showWrap();
-		this.showChangesLog();
 		window.addEventListener("resize", this.onResize, true);
 	} //init()
 };

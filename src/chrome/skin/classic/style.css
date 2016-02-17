@@ -7,3 +7,11 @@ menupopup[scrollbars="true"] scrollbox
 {
 	overflow-y: auto !important;
 }
+
+menupopup[hide],
+menupopup[hide] *
+{
+	visibility: hidden !important;
+	opacity: 0 !important;
+}
+

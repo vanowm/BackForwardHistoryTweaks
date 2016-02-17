@@ -266,47 +266,48 @@ function makeTrigger() {
  * @return [function]: A 0-parameter function that undoes adding the callback.
  */
 function unload(callback, container) {
-	// Initialize the array of unloaders on the first usage
-	let unloaders = unload.unloaders;
-	if (unloaders == null)
-		unloaders = unload.unloaders = [];
+  // Initialize the array of unloaders on the first usage
+  let unloaders = unload.unloaders;
+  if (unloaders == null)
+    unloaders = unload.unloaders = [];
 
-	// Calling with no arguments runs all the unloader callbacks
-	if (callback == null) {
-		unloaders.slice().forEach(function(unloader){unloader()});
-		unloaders.length = 0;
-		return;
-	}
+  // Calling with no arguments runs all the unloader callbacks
+  if (callback == null) {
+    unloaders.slice().forEach(function(unloader) {return unloader()});
+    unloaders.length = 0;
+    return;
+  }
 
-	// The callback is bound to the lifetime of the container if we have one
-	if (container != null) {
-		// Remove the unloader when the container unloads
-		container.addEventListener("unload", removeUnloader, false);
+  // The callback is bound to the lifetime of the container if we have one
+  if (container != null) {
+    // Remove the unloader when the container unloads
+    container.addEventListener("unload", unloader, false);
 
-		// Wrap the callback to additionally remove the unload listener
-		let origCallback = callback;
-		callback = function() {
-			container.removeEventListener("unload", removeUnloader, false);
-			origCallback();
-		}
-	}
+    // Wrap the callback to additionally remove the unload listener
+    let origCallback = callback;
+    callback = function() {
+      container.removeEventListener("unload", unloader, false);
+      removeUnloader();
+      origCallback();
+    }
+  }
 
-	// Wrap the callback in a function that ignores failures
-	function unloader() {
-		try {
-			callback();
-		}
-		catch(ex) {}
-	}
-	unloaders.push(unloader);
+  // Wrap the callback in a function that ignores failures
+  function unloader() {
+    try {
+      callback();
+    }
+    catch(ex) {}
+  }
+  unloaders.push(unloader);
 
-	// Provide a way to remove the unloader
-	function removeUnloader() {
-		let index = unloaders.indexOf(unloader);
-		if (index != -1)
-			unloaders.splice(index, 1);
-	}
-	return removeUnloader;
+  // Provide a way to remove the unloader
+  function removeUnloader() {
+    let index = unloaders.indexOf(unloader);
+    if (index != -1)
+      unloaders.splice(index, 1);
+  }
+  return removeUnloader;
 }
 
 /**
@@ -393,3 +394,41 @@ function async(callback, time, timer)
 	}}, time || 0, timer.TYPE_ONE_SHOT);
 	return timer;
 }//async()
+
+function _$(node, childId)
+{
+	if (node.getElementById)
+		return node.getElementById(childId);
+	else
+		return node.querySelector("#" + childId);
+}
+
+function _listen(window, obj, com, func, param)
+{
+	if (!obj)
+		return;
+
+	if (!("bfht" in obj))
+		obj.bfht = {unload:{}};
+
+	if (!("unload" in obj.bfht))
+		obj.bfht.unload = {};
+
+	if (obj.bfht.unload[com])
+		return obj.bfht.unload[com];
+
+	let ret = listen(window, obj, com, func, param);
+	function undo()
+	{
+		delete obj.inited;
+		delete obj.bfht.unload[com];
+	}
+	let unl = unload(undo, window);
+	obj.bfht.unload[com] =  function()
+	{
+		ret();
+		undo();
+		unl();
+	};
+	return obj.bfht.unload[com];
+} //_listen()

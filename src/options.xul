@@ -8,7 +8,7 @@
 <vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 	<setting id="bfht_firstRow" type="control"/>
 	<setting id="bfht_num" type="integer" pref="extensions.backforwardhistorytweaks.num" title="&options.num;" desc="&options.num.desc;" flex="0" size="1"/>
-	<setting id="bfht_overflow" type="menulist" pref="extensions.backforwardhistorytweaks.overflow" title="&options.overflow;" desc="&options.overflow.desc;">
+	<setting id="bfht_overflow" type="menulist" _pref="extensions.backforwardhistorytweaks.overflow" title="&options.overflow;" desc="&options.overflow.desc;">
 		<menulist crop="none">
 			<menupopup>
 				<menuitem id="bfht_overflow_0" value="0" label="&options.overflow.0;"/>
@@ -17,7 +17,7 @@
 			</menupopup>
 		</menulist>
 	</setting>
-	<setting id="bfht_showIndex" type="menulist" pref="extensions.backforwardhistorytweaks.showIndex" title="&options.showIndex;" desc="&options.showIndex.desc;">
+	<setting id="bfht_showIndex" type="menulist" _pref="extensions.backforwardhistorytweaks.showIndex" title="&options.showIndex;" desc="&options.showIndex.desc;">
 		<menulist crop="none">
 			<menupopup>
 				<menuitem id="bfht_showIndex_0" value="0" label="&options.showIndex.0;"/>
@@ -27,7 +27,7 @@
 		</menulist>
 	</setting>
 	<setting id="bfht_showIndexTotal" type="bool" pref="extensions.backforwardhistorytweaks.showIndexTotal" title="&options.showIndexTotal;" desc="&options.showIndexTotal.desc;" class="bfht"/>
-	<setting id="bfht_showItem" type="menulist" pref="extensions.backforwardhistorytweaks.showItem" title="&options.showItem;">
+	<setting id="bfht_showItem" type="menulist" _pref="extensions.backforwardhistorytweaks.showItem" title="&options.showItem;">
 		<menulist crop="none">
 			<menupopup>
 				<menuitem id="bfht_showItem_0" value="0" label="&options.showItem.0;"/>
@@ -37,7 +37,7 @@
 			</menupopup>
 		</menulist>
 	</setting>
-	<setting id="bfht_tooltip" type="menulist" pref="extensions.backforwardhistorytweaks.tooltip" title="&options.tooltip;">
+	<setting id="bfht_tooltip" type="menulist" _pref="extensions.backforwardhistorytweaks.tooltip" title="&options.tooltip;">
 		<menulist crop="none">
 			<menupopup>
 				<menuitem id="bfht_tooltip_0" value="0" label="&options.tooltip.0;"/>
@@ -47,7 +47,7 @@
 			</menupopup>
 		</menulist>
 	</setting>
-	<setting id="bfht_order" type="menulist" pref="extensions.backforwardhistorytweaks.order" title="&options.order;" desc="&options.order.desc;">
+	<setting id="bfht_order" type="menulist" _pref="extensions.backforwardhistorytweaks.order" title="&options.order;" desc="&options.order.desc;">
 		<menulist crop="none">
 			<menupopup>
 				<menuitem id="bfht_order_0" value="0" label="&options.order.0;"/>
@@ -56,7 +56,17 @@
 		</menulist>
 	</setting>
 <!--	<setting id="bfht_combine" type="bool" pref="extensions.backforwardhistorytweaks.combine"/>-->
-	<setting id="bfht_showChangesLog" type="bool" pref="extensions.backforwardhistorytweaks.showChangesLog" title="&options.showChangesLog;" desc="&options.showChangesLog.desc;" class="bfht"/>
+	<setting id="bfht_showChangesLog" type="control" title="&options.showChangesLog;" desc="&options.showChangesLog.desc;" class="bfht">
+		<label id="bfht_showChangesLog_button" class="text-link childlabel bfht" value="&options.showChangesLog.button;"/>
+		<button id="bfht_changesLog" type="menu">
+			<panel position="after_start">
+				<vbox id="bfht_changesLogMenu">
+					<checkbox id="bfht_changes_1" value="1" type="checkbox" label="&options.showChangesLogNotif;" tooltiptext="&options.showChangesLogNotif.desc;"/>
+					<checkbox id="bfht_changes_2" value="2" type="checkbox" label="&options.showChangesLogFull;" tooltiptext="&options.showChangesLogFull.desc;"/>
+				</vbox>
+			</panel>
+		</button>
+	</setting>
 	<setting id="bfht_support" type="control" title="&options.support;">
 		<label>
 			<label id="bfht_homepage" class="text-link childlabel bfht" value="&options.homepage;" context="bfht_link"/>
@@ -73,12 +83,5 @@
 	</setting>
 	<setting id="bfht_reset" type="control" title="&options.reset.desc;">
 		<button id="bfht_reset_button" label="&options.reset;"/>
-	</setting>
-
-<!-- language strings and elements that needs to be moved -->
-	<setting collapsed="true" type="control">
-		<label id="bfht_text_all" value="&all;"/>
-		<label id="bfht_text_confirm" value="&confirm;"/>
-		<label id="bfht_showChangesLog_button" class="text-link childlabel bfht" value="&options.showChangesLog.button;"/>
 	</setting>
 </vbox>

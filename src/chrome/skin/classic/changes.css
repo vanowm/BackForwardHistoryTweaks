@@ -2,8 +2,7 @@
 {
 	padding: 0;
 }
-#bfhtChangesLogWindow,
-#bfhtChangesLogWindow *
+#bfhtChangesLogWindow description
 {
 	-moz-user-select: text;
 }
@@ -127,6 +126,11 @@ hbox.border,
 {
 	cursor: pointer;
 	list-style-image: none;
+}
+#changesLogMenu .button-icon
+{
+	margin-right: 0.5em;
+	list-style-image:url("settings.png");
 }
 
 #changesLog[legend="0"] .legend

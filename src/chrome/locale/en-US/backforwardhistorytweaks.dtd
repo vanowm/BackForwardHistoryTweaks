@@ -6,13 +6,14 @@
 <!ENTITY changesLog.support.email 					"email">
 <!ENTITY changesLog.more 										"More info at">
 <!ENTITY changesLog.here 										"homepage">
-<!ENTITY changesLog.menu.showOnUpdates 			"Show after updates">
-<!ENTITY changesLog.menu.showOnUpdates.desc "Show this changes log after each update">
+<!ENTITY changesLog.menu.showOnUpdates 			"Notify after updates">
+<!ENTITY changesLog.menu.showOnUpdates.desc	"Get notified when new version installed">
 <!ENTITY changesLog.menu.legend 						"Legend">
 <!ENTITY changesLog.menu.wrap								"Wrap">
 <!ENTITY changesLog.menu.hightlight 				"Hightlight">
 <!ENTITY changesLog.options									"Options">
 
+<!ENTITY changesLog.options.addon						"Addon options">
 <!ENTITY options.overflow										"Overflow">
 <!ENTITY options.overflow.desc							"Allow scrolling if number of history items is larger then shown on screen.">
 <!ENTITY options.overflow.0									"Default">
@@ -44,6 +45,10 @@
 <!ENTITY options.showChangesLog							"Show">
 <!ENTITY options.showChangesLog.desc				"Show changes log after each update.">
 <!ENTITY options.showChangesLog.button			"changes log">
+<!ENTITY options.showChangesLogNotif				"Notification">
+<!ENTITY options.showChangesLogNotif.desc		"Show partial changes log as notification popup">
+<!ENTITY options.showChangesLogFull					"Full changes log">
+<!ENTITY options.showChangesLogFull.desc		"Open full changes log in a tab">
 <!ENTITY options.combine										"Combine back and forward lists">
 <!ENTITY options.combine.desc								"Show both back and forward items in the list">
 <!ENTITY options.reset											"Reset all">
@@ -52,5 +57,3 @@
 <!ENTITY options.support.website						"Support site">
 <!ENTITY options.support.email							"Email">
 <!ENTITY options.homepage 									"Homepage">
-<!ENTITY all							 									"All">
-<!ENTITY confirm					 									"Are You sure?">
