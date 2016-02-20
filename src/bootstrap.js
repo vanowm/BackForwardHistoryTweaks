@@ -213,7 +213,6 @@ function windowLoad(window, type)
 				return _$(document, id);
 			};
 
-	window.bfht = {};
 	if (bfht.prevVersion && !bfht.showedChangesLog && bfht.prevVersion != addon.version && bfht.pref.getIntPref("showChangesLog"))
 	{
 		bfht.showedChangesLog = true;
@@ -706,7 +705,6 @@ function FillHistoryMenu(aParent) {
 		window.FillHistoryMenu = _FillHistoryMenu;
 		Services.obs.removeObserver(overflowInit, "bfht_overlowInit", false);
 		Services.obs.removeObserver(changesLogMenu, "bfht_changesLog", false);
-		delete window.bfht;
 	}
 	unload(function()
 	{
