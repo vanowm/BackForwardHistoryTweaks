@@ -201,6 +201,7 @@ function windowLoad(window, type)
 {
 	if (!window)
 		return;
+
 	type = type || null;
 	let document = window.document,
 			_FillHistoryMenu = null,
@@ -696,7 +697,7 @@ function FillHistoryMenu(aParent) {
 	//wait 0.5 sec for TMP finish patching FillHistoryMenu before we back it up and replace with ours and then as a precation repeat the check every 10 seconds;
 	async(func, 500);
 	let FillHistoryMenuTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-//	FillHistoryMenuTimer.init(func, 10000, Ci.nsITimer.TYPE_REPEATING_SLACK);
+	FillHistoryMenuTimer.init(func, 10000, Ci.nsITimer.TYPE_REPEATING_SLACK);
 	_listen(window, window, "unload", cleanup, false);
 	function cleanup()
 	{
