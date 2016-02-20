@@ -55,6 +55,15 @@
 			</menupopup>
 		</menulist>
 	</setting>
+	<setting id="bfht_rightClick" type="menulist" _pref="extensions.backforwardhistorytweaks.rightClick" title="&options.rightClick;" desc="&options.rightClick.desc;">
+		<menulist crop="none">
+			<menupopup>
+				<menuitem id="bfht_rightClick_0" value="0" label="&options.rightClick.0;"/>
+				<menuitem id="bfht_rightClick_1" value="1" label="&options.rightClick.1;"/>
+				<menuitem id="bfht_rightClick_2" value="2" label="&options.rightClick.2;"/>
+			</menupopup>
+		</menulist>
+	</setting>
 <!--	<setting id="bfht_combine" type="bool" pref="extensions.backforwardhistorytweaks.combine"/>-->
 	<setting id="bfht_showChangesLog" type="control" title="&options.showChangesLog;" desc="&options.showChangesLog.desc;" class="bfht">
 		<label id="bfht_showChangesLog_button" class="text-link childlabel bfht" value="&options.showChangesLog.button;"/>

@@ -17,6 +17,9 @@ var   {classes: Cc, interfaces: Ci, utils: Cu} = Components,
 			CHANGESLOG_NONE = 0,
 			CHANGESLOG_NOTIFICATION = 1,
 			CHANGESLOG_FULL = 2;
+			RIGHTCLICK_NONE = 0,
+			RIGHTCLICK_MENU = 1,
+			RIGHTCLICK_COPY = 2;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 try{XPCOMUtils.defineLazyModuleGetter(this, "Services", "resource://gre/modules/Services.jsm")}catch(e){};
 try{XPCOMUtils.defineLazyModuleGetter(this, "AddonManager", "resource://gre/modules/AddonManager.jsm")}catch(e){};
@@ -64,6 +67,7 @@ var ADDON_ID,
 		tooltip: {default: TOOLTIP_NONE, value: TOOLTIP_NONE, min: 0, max: 3}, //show website title and/or URL address in tooltip
 		order: {default: 1, value: 1, min: 0, max: 1}, //list order: 1 = newest (forward) on top, 0 = newest on bottom
 		version: {default: "", value: ""},
+		rightClick: {default: RIGHTCLICK_MENU, value: RIGHTCLICK_MENU, min:0, max: 3}, //right click on menu item
 		showChangesLog: {default: CHANGESLOG_NOTIFICATION, value: CHANGESLOG_NOTIFICATION, min:0, max: 3}, //show changes log after update
 	},
 	browser_sessionhistory_max_entries: 50,
@@ -188,12 +192,15 @@ var ADDON_ID,
 
 } //bfht
 
+function copy(text)
+{
+	Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(text);
+}//copy()
 
 function windowLoad(window, type)
 {
 	if (!window)
 		return;
-
 	type = type || null;
 	let document = window.document,
 			_FillHistoryMenu = null,
@@ -205,6 +212,7 @@ function windowLoad(window, type)
 				return _$(document, id);
 			};
 
+	window.bfht = {};
 	if (bfht.prevVersion && !bfht.showedChangesLog && bfht.prevVersion != addon.version && bfht.pref.getIntPref("showChangesLog"))
 	{
 		bfht.showedChangesLog = true;
@@ -212,6 +220,40 @@ function windowLoad(window, type)
 		{
 			showChangesLog(window, bfht.pref.getIntPref("showChangesLog"));
 		}, 1000);
+	}
+
+	let menuitemMenu = document.createElement("menupopup"),
+			mi = document.createElement("menuitem");
+	mi.setAttribute("label", _("copy_url"));
+	menuitemMenu.appendChild(mi);
+	if ($("mainPopupSet"))
+	{
+		$("mainPopupSet").appendChild(menuitemMenu);
+		unload(function()
+		{
+			$("mainPopupSet").removeChild(menuitemMenu);
+		}, window);
+		_listen(window, menuitemMenu, "command", function(e)
+		{
+			copy(menuitemMenu.bfht.getAttribute("uri"));
+		}, true);
+	
+		_listen(window, menuitemMenu, "DOMMenuItemActive", function(aEvent)
+		{
+			XULBrowserWindow.setOverLink(menuitemMenu.bfht.getAttribute("uri"));
+		}, false);
+	
+		_listen(window, menuitemMenu, "DOMMenuItemInactive", function(aEvent)
+		{
+			XULBrowserWindow.setOverLink("");
+		}
+		, false);
+	}
+
+	function popuphidden(popup)
+	{
+		bfht.popups = 0;
+		popup.removeAttribute("hide");
 	}
 
 	function overflowInit()
@@ -249,11 +291,6 @@ function windowLoad(window, type)
 				}
 				, false);
 
-				_listen(window, menupopup, "popupshowing", function(e)
-				{
-					bfht.popups++;
-				}, true);
-
 				_listen(window, menupopup, "popupshown", function(e)
 				{
 					if (menupopup.hasAttribute("hide"))
@@ -262,22 +299,41 @@ function windowLoad(window, type)
 
 				_listen(window, menupopup, "popuphidden", function(e)
 				{
-					if (!--bfht.popups)
-						menupopup.removeAttribute("hide");
+					popuphidden(menupopup);
+				}, true);
+
+				_listen(window, menupopup, "click", function(e)
+				{
+					if (e.button == 2 && bfht.prefs.rightClick.value)
+					{
+						e.stopPropagation();
+						e.preventDefault();
+						if (bfht.prefs.rightClick.value == RIGHTCLICK_MENU)
+						{
+							menuitemMenu.bfht = e.target;
+							menuitemMenu.openPopup(e.target, "after_pointer", 0, 0, false);
+						}
+						else
+						{
+							copy(e.target.getAttribute("uri"))
+							menupopup.hidePopup();
+						}
+					}
 				}, true);
 
 				unload(function()
 				{
 					menupopup.parentNode.replaceChild(menupopup.origNode, menupopup);
 				}, window);
-			}
+			}//(!menupopup.origNode)
+
 			//work around for an issue, that doesn't scroll to correct item on first opening and incorrect number of items shown on first open.
 			function menupopupReopen()
 			{
-				//using async otherwise popupshown event doesn't fire when menupopup was opened and user clicked on a setting to change.
-				menupopup.bfht.reopen = async(function()
+				let n = (new Date()).getTime();
+				menupopup.setAttribute("hide", true);
+				let func = function()
 				{
-					menupopup.setAttribute("hide", true);
 					if (bfht.prefs.overflow.value != OVERFLOW_SCROLL)
 					{
 						//work around for an issue when buttons shown after switching from scrollbars mode
@@ -291,9 +347,19 @@ function windowLoad(window, type)
 					}
 					else
 						menupopup.openPopup();
-				}, 0, menupopup.bfht.reopen);
+				}
+				//events not firing properly for popups opened in async mode, therefore we must open them in sync.
+				//as a precation create a timeout in case popuphidden event not fired.
+				if (bfht.popups && n - bfht.popups < 1000)
+				{
+					menupopup.bfht.reopen = async(menupopupReopen, 0, menupopup.bfht.reopen);
+					return;
+				}
+				bfht.popups = n;
+				//using async otherwise popupshown event doesn't fire when menupopup was opened and user clicked on a setting to change.
+				menupopup.bfht.reopen = async(func, 0, menupopup.bfht.reopen);
 			}
-				menupopupReopen()
+			menupopupReopen()
 		}
 		fixPopup("backForwardMenu");
 //		fixPopup("back-button");
@@ -380,7 +446,7 @@ function FillHistoryMenu(aParent) {
         // if there is only one entry now, close the popup.
 //        aParent.hidePopup();
         return;
-      } else if (!aParent.parentNode.open) {
+      } else if (!aParent.parentNode.open && !aParent.hasAttribute("hide")) {
         // if the popup wasn't open before, but now needs to be, reopen the menu.
         // It should trigger FillHistoryMenu again.
         aParent.parentNode.open = true;
@@ -598,15 +664,24 @@ function FillHistoryMenu(aParent) {
 		}
 	}
   if (!sessionHistory)
-    return false;
+ 	{
+		if (aParent.hasAttribute("hide"))
+			popuphidden(aParent);
 
+    return false;
+}
   // don't display the popup for a single item
   if (sessionHistory.entries.length <= 1)
+	{
+		if (aParent.hasAttribute("hide"))
+			popuphidden(aParent);
+
     return false;
+	}
 
   updateSessionHistory(sessionHistory, true);
   return true;
-}
+}//FillHistoryMenu()
 
 	let func = function(timer)
 	{
@@ -621,7 +696,7 @@ function FillHistoryMenu(aParent) {
 	//wait 0.5 sec for TMP finish patching FillHistoryMenu before we back it up and replace with ours and then as a precation repeat the check every 10 seconds;
 	async(func, 500);
 	let FillHistoryMenuTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-	FillHistoryMenuTimer.init(func, 10000, Ci.nsITimer.TYPE_REPEATING_SLACK);
+//	FillHistoryMenuTimer.init(func, 10000, Ci.nsITimer.TYPE_REPEATING_SLACK);
 	_listen(window, window, "unload", cleanup, false);
 	function cleanup()
 	{
@@ -630,6 +705,7 @@ function FillHistoryMenu(aParent) {
 		window.FillHistoryMenu = _FillHistoryMenu;
 		Services.obs.removeObserver(overflowInit, "bfht_overlowInit", false);
 		Services.obs.removeObserver(changesLogMenu, "bfht_changesLog", false);
+		delete window.bfht;
 	}
 	unload(function()
 	{
