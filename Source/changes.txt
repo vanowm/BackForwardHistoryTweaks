@@ -7,16 +7,28 @@ Legend:
 * = Changed
 - = Removed
 
+v1.4 (2016-03-03)
+	+ message when address copied to clipboard
+	+ copy title to clipboard
+	+ icons to context menu
+	+ options to context menu
+	+ links to posted issues at changes log page
+	* right click menu on history item shows under cursor now
+	! no context menu shown on items when back/forward history menu opened via long left click instead of right click
+	! copy address menu item moves when scrolling menu under it
+	! "undefined" shown on websites with no title
+	! text at changes log incorrectly formatted after copied to clipboard
+
 v1.3 (2016-02-20)
 	+ ability copy address via right click on a history item
-	! fixed issue #4 - Right click no longer works
+	! issue #4 (Right click no longer works)
 
 v1.2 (2016-02-17)
-	+ notification popup when addon updated (not all OS supported) Should be less intrusive then open full changes log tab. You can test it by changing it in the options.
+	+ notification popup when addon updated (not all OS supported) Should be less intrusive than open full changes log page. You can test it by changing it in the addon's options.
 	+ button to open addon options from changes log page
 	+ icon on options button at changes log page
 	! another attempt to fix popup menu shown when new window opened or setting changed. For now support for individual back and forward popups are dropped. If this breaks other addons, please let me know.
-	! fixed issue #3 - Breaks middle-clicking/ctrl+clicking on back/forward history items
+	! issue #3 (Breaks middle-clicking/ctrl+clicking on back/forward history items)
 
 v1.1.3 (2016-02-01)
 	+ multi-process (e10s) support
@@ -42,12 +54,12 @@ v1.1 (2013-07-15)
 	+ addon's description is now "rolled up" by default, makes it easier get to the options at the bottom of the page
 	+ in options with dropdown menu the default items are shown in bold
 	+ options reset button
-	* minimum allowed number in "Number of items to show" option is now set to 3, this should eliminate issues with scrollbar
+	* minimum allowed number in "Number of items to show" option is now set to 3, this should eliminate issues with scroll bar
 	* option "Number of items to show" now shows "All" when set to "0"
-	* in option "Oveflow control" the "Default" item renamed to "None"
+	* in option "Overflow control" the "Default" item renamed to "None"
 	! sites fav icons didn't show in the back/forward list
 	! input field size in options
-	! only max of 50 items would show in the dropdown regardless of settings
+	! issue #1 (Max history cannot be set more then 50)
 	! issues with displaying "show changes log" option, also now log can be opened by clicking on that option title
 	- "(restartless)" from the name
 

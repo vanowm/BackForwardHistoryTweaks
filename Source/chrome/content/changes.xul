@@ -72,7 +72,7 @@
 		</hbox>
 	</vbox>
 	<popupset>
-		<menupopup id="changesLogLink" oncommand="changesLog.copy(event);">
+		<menupopup id="changesLogLink" oncommand="changesLog.copyMenu(event);" copied="&changesLog.copied;">
 			<menuitem label="&copyCmd.label;" accesskey="&copyCmd.accesskey;"/>
 		</menupopup>
 		<menupopup id="changesLogContext" oncommand="changesLog.context(event);" onpopupshowing="changesLog.popup(event)">

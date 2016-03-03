@@ -386,7 +386,7 @@ function async(callback, time, timer)
 		timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
 
 	let clean = unload(timer.cancel);
-	timer.init({observe:function()
+	timer.init({observe: function()
 	{
 		timer.cancel();
 		callback();
@@ -394,6 +394,7 @@ function async(callback, time, timer)
 	}}, time || 0, timer.TYPE_ONE_SHOT);
 	return timer;
 }//async()
+
 
 function _$(node, childId)
 {

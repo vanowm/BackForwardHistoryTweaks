@@ -1,0 +1,30 @@
+menupopup[scrollbars="true"] autorepeatbutton
+{
+	display: none;
+}
+
+menupopup[scrollbars="true"] scrollbox
+{
+	overflow-y: auto !important;
+}
+
+menupopup[hide],
+menupopup[hide] *
+{
+	visibility: hidden !important;
+	opacity: 0 !important;
+}
+
+.bfht_copy
+{
+	list-style-image:url("chrome://bfht/skin/copy.png") !important;
+}
+.bfht_copy_link
+{
+	list-style-image:url("chrome://bfht/skin/copy_link.png") !important;
+}
+
+.bfht_options
+{
+	list-style-image:url("chrome://bfht/skin/settings.png") !important;
+}

@@ -1,6 +1,7 @@
-var   {classes: Cc, interfaces: Ci, utils: Cu} = Components;
+var {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/AddonManager.jsm");
+
 var changesLog = {
 	addon: null,
 	pref: Services.prefs.getBranch("extensions.backforwardhistorytweaks."),
@@ -18,8 +19,18 @@ var changesLog = {
 
 	mouseOver: function(e)
 	{
-		let status = "XULBrowserWindow" in changesLog.rootWin ? changesLog.rootWin.XULBrowserWindow : null,
-				txt = e.target.getAttribute("link");
+		changesLog.statusText(e.target.getAttribute("link"));
+	},
+
+	mouseOut: function(e)
+	{
+		changesLog.statusText("");
+	},
+	
+	statusText: function(txt)
+	{
+		let status = "XULBrowserWindow" in changesLog.rootWin ? changesLog.rootWin.XULBrowserWindow : null;
+
 		if (status)
 		{
 			status.overLink = txt;
@@ -37,39 +48,45 @@ var changesLog = {
 			status = changesLog.rootDoc.getElementById("statusText");
 			if (!status)
 				return;
+
 			status.setAttribute("label", txt);
 		}
 	},
 
-	mouseOut: function(e)
+	copyMenu: function(e)
 	{
-		let status = "XULBrowserWindow" in changesLog.rootWin ? changesLog.rootWin.XULBrowserWindow : null;
-		if (status)
+		changesLog.copy(document.popupNode.hasAttribute("linkCopy") ? document.popupNode.getAttribute("linkCopy") : document.popupNode.getAttribute("link"));
+	},
+
+	copy: function(txt)
+	{
+		Cc["@mozilla.org/widget/clipboardhelper;1"]
+			.getService(Ci.nsIClipboardHelper)
+			.copyString(txt);
+
+		changesLog.copy.timer = changesLog.async(function()
 		{
-			status.overLink = "";
-			try
+			changesLog.statusText(document.getElementById("changesLogLink").getAttribute("copied") + ": " + txt);
+			changesLog.copy.timer = changesLog.async(function()
 			{
-				rootWin.LinkTargetDisplay.update();
-			}
-			catch(e)
-			{
-				status.updateStatusField();
-			}
-		}
+				changesLog.statusText("");
+			}, 5000, changesLog.copy.timer);
+		}, 500, changesLog.copy.timer);
+	},
+
+	async: function(callback, time, timer)
+	{
+		if (timer)
+			timer.cancel();
 		else
+			timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+	
+		timer.init({observe:function()
 		{
-			status = changesLog.rootDoc.getElementById("statusText");
-			if (!status)
-				return;
-			status.setAttribute("label", "");
-		}
-	},
-	copy: function(e)
-	{
-		Components.classes["@mozilla.org/widget/clipboardhelper;1"]
-			.getService(Components.interfaces.nsIClipboardHelper)
-			.copyString(document.popupNode.hasAttribute("linkCopy") ? document.popupNode.getAttribute("linkCopy") : document.popupNode.getAttribute("link"));
-	},
+			callback();
+		}}, time || 0, timer.TYPE_ONE_SHOT);
+		return timer;
+	},//async()
 
 	context: function(e)
 	{
@@ -78,10 +95,9 @@ var changesLog = {
 		{
 			if (sel.rangeCount > 0)
 			{
-				let txt = sel.getRangeAt(0).toString();
-				Components.classes["@mozilla.org/widget/clipboardhelper;1"]
-				.getService(Components.interfaces.nsIClipboardHelper)
-				.copyString(txt);
+//				let txt = sel.getRangeAt(0).toString();
+				let txt = sel.toString();
+				changesLog.copy(txt);
 			}
 		}
 		else if (e.originalTarget.id == "changesLogSelectAll")
@@ -186,14 +202,13 @@ var changesLog = {
 
 	openOptions: function()
 	{
-		Components.utils.import('resource://gre/modules/Services.jsm');
 		Services.wm.getMostRecentWindow('navigator:browser').BrowserOpenAddonsMgr("addons://detail/" + changesLog.addon.id + "/preferences");
 	},
 
 	onResize: function ()
 	{
 		let hbox = document.getElementsByAttribute("line", ""),
-				height = document.getElementById("bfhtFirst");
+				height = document.getElementById("changesLogFirst");
 		if (!height)
 			return;
 
@@ -241,24 +256,24 @@ var changesLog = {
 	{
 		let changesLogObj = document.getElementById("changesLog"),
 				aURL = this.addon.getResourceURI("changes.txt").spec,
-				utf8Converter = Components.classes["@mozilla.org/intl/utf8converterservice;1"]
-													.getService(Components.interfaces.nsIUTF8ConverterService),
-				ioService = Components.classes["@mozilla.org/network/io-service;1"]
-											.getService(Components.interfaces.nsIIOService),
-				scriptableStream = Components.classes["@mozilla.org/scriptableinputstream;1"]
-											.getService(Components.interfaces.nsIScriptableInputStream),
+				utf8Converter = Cc["@mozilla.org/intl/utf8converterservice;1"]
+													.getService(Ci.nsIUTF8ConverterService),
+				ioService = Cc["@mozilla.org/network/io-service;1"]
+											.getService(Ci.nsIIOService),
+				scriptableStream = Cc["@mozilla.org/scriptableinputstream;1"]
+											.getService(Ci.nsIScriptableInputStream),
 				channel = ioService.newChannel(aURL,null,null),
 				array,
 				title;
 		document.title = this.addon.name + " " + document.getElementById("changesLogTitle").value;
 		document.getElementById("changesLogTitle").value = document.title;
 
-		this.rootWin =  window.QueryInterface(Components.interfaces.nsIInterfaceRequestor)
-												.getInterface(Components.interfaces.nsIWebNavigation)
-												.QueryInterface(Components.interfaces.nsIDocShellTreeItem)
+		this.rootWin =  window.QueryInterface(Ci.nsIInterfaceRequestor)
+												.getInterface(Ci.nsIWebNavigation)
+												.QueryInterface(Ci.nsIDocShellTreeItem)
 												.rootTreeItem
-												.QueryInterface(Components.interfaces.nsIInterfaceRequestor)
-												.getInterface(Components.interfaces.nsIDOMWindow);
+												.QueryInterface(Ci.nsIInterfaceRequestor)
+												.getInterface(Ci.nsIDOMWindow);
 		this.rootDoc = this.rootWin.document;
 		let sup = document.getElementById("supportSite");
 		sup.setAttribute("href", SUPPORTSITE);
@@ -296,6 +311,7 @@ var changesLog = {
 					label = document.createElement("description"),
 					hbox = document.createElement("hbox"),
 					vbox = document.createElement("vbox"),
+					space = document.createElement("description"),
 					txt = 0;
 			if (i > 0)
 				changesLogObj.appendChild(document.createTextNode("\n"));
@@ -305,6 +321,7 @@ var changesLog = {
 			vbox.setAttribute("flex", 1);
 			type.className = "type";
 			tab.className = "tab";
+			space.textContent = " ";
 			if (t)
 			{
 				tab.textContent = t[1];
@@ -333,6 +350,7 @@ var changesLog = {
 				}
 				hbox.appendChild(tab);
 				hbox.appendChild(type);
+				hbox.appendChild(space);
 				txt = t[1].length + 1;
 				if (t[1])
 				{
@@ -345,7 +363,7 @@ var changesLog = {
 			{
 				if (isLegend)
 				{
-					hbox.id = "bfhtFirst";
+					hbox.id = "changesLogFirst";
 					if (legendBox)
 						legendBox.className += " border";
 				}
@@ -373,7 +391,47 @@ var changesLog = {
 			else
 				hbox.setAttribute("line", "");
 
-			label.textContent = array[i].substr(txt).trim();
+			let line = array[i].substr(txt).trim(),
+					list = [],
+					reg = /([ ,])(#([0-9]+))/g,
+					issue;
+
+			while(issue = reg.exec(line))
+			{
+				list.push(issue);
+			}
+			
+			if (ISSUESSITE && list.length)
+			{
+				let start = 0;
+				for(let i = 0; i < list.length; i++)
+				{
+					let part = list[i],
+							end = part.index + part[1].length,
+							text = line.substring(start, end);
+					start = end + part[2].length;
+					let ll = document.createElement("description");
+					ll.textContent = text;
+					label.appendChild(ll);
+					ll = document.createElement("label");
+					ll.setAttribute("link", ISSUESSITE + part[3]);
+					ll.setAttribute("href", ISSUESSITE + part[3]);
+					ll.setAttribute("tooltiptext", ISSUESSITE + part[3]);
+					ll.setAttribute("onmouseover", "changesLog.mouseOver(event)");
+					ll.setAttribute("onmouseout", "changesLog.mouseOut(event)");
+					ll.setAttribute("context", "changesLogLink");
+					ll.className = "text-link link issue";
+					ll.textContent = part[2];
+					label.appendChild(ll);
+				}
+				ll = document.createElement("description");
+				ll.textContent = line.substr(start);
+				label.appendChild(ll);
+			}
+			else
+				label.textContent = line;
+
+			label.appendChild(document.createTextNode("\n"));
 			vbox.appendChild(label)
 			hbox.appendChild(vbox);
 			changesLogObj.appendChild(hbox);

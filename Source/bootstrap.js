@@ -191,12 +191,10 @@ var ADDON_ID,
 	}, //decode()
 
 } //bfht
-
-function copy(text)
+function openOptions()
 {
-	Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(text);
-}//copy()
-
+	Services.wm.getMostRecentWindow('navigator:browser').BrowserOpenAddonsMgr("addons://detail/" + addon.id + "/preferences");
+}
 function windowLoad(window, type)
 {
 	if (!window)
@@ -222,9 +220,36 @@ function windowLoad(window, type)
 		}, 1000);
 	}
 
+	function copy(text)
+	{
+		Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper).copyString(text);
+		copy.timer = async(function()
+		{
+			XULBrowserWindow.setOverLink(_("copied") + ": " + text);
+			copy.timer = async(function()
+			{
+				XULBrowserWindow.setOverLink("");
+			}, 4000, copy.timer);
+		}, 500, copy.timer)
+	}//copy()
+
 	let menuitemMenu = document.createElement("menupopup"),
 			mi = document.createElement("menuitem");
-	mi.setAttribute("label", _("copy_url"));
+	mi.setAttribute("label", _("menu_copy_url"));
+	mi.className = "menuitem-iconic bfht_copy_link";
+	mi.id = "bfht_copy";
+	menuitemMenu.appendChild(mi);
+	mi = mi.cloneNode(false);
+	mi.setAttribute("label", _("menu_copy_title"));
+	mi.className = "menuitem-iconic bfht_copy";
+	mi.id = "bfht_title";
+	menuitemMenu.appendChild(mi);
+	menuitemMenu.appendChild(document.createElement("menuseparator"));
+	mi = mi.cloneNode(false);
+	mi.setAttribute("label", _("menu_options"));
+	mi.className = "menuitem-iconic bfht_options";
+	mi.id = "bfht_options";
+	menuitemMenu.id = "bfht_menu";
 	menuitemMenu.appendChild(mi);
 	if ($("mainPopupSet"))
 	{
@@ -235,7 +260,18 @@ function windowLoad(window, type)
 		}, window);
 		_listen(window, menuitemMenu, "command", function(e)
 		{
-			copy(menuitemMenu.bfht.getAttribute("uri"));
+			switch(e.target.id)
+			{
+				case "bfht_copy":
+					copy(menuitemMenu.bfht.getAttribute("uri"));
+					break;
+				case "bfht_title":
+					copy(menuitemMenu.bfht.title);
+					break;
+				case "bfht_options":
+					openOptions();
+					break;
+			}
 		}, true);
 	
 		_listen(window, menuitemMenu, "DOMMenuItemActive", function(aEvent)
@@ -256,114 +292,120 @@ function windowLoad(window, type)
 		popup.removeAttribute("hide");
 	}
 
-	function overflowInit()
+	function fixPopup(id)
 	{
-		function fixPopup(id)
+		let menupopup = $(id);
+		if (menupopup.tagName != "menupopup")
+			menupopup = menupopup.firstChild;
+
+		if (!menupopup || menupopup.tagName != "menupopup")
+			return;
+
+		if (!menupopup.origNode)
 		{
-			let menupopup = $(id);
-			if (menupopup.tagName != "menupopup")
-				menupopup = menupopup.firstChild;
+			menupopup.origNode = menupopup.cloneNode(true);
 
-			if (!menupopup || menupopup.tagName != "menupopup")
-				return;
-
-			if (!menupopup.origNode)
+			// Show history item's uri in the status bar when hovering, and clear on exit
+			_listen(window, menupopup, "DOMMenuItemActive", function(aEvent)
 			{
-				menupopup.origNode = menupopup.cloneNode(true);
+				if (bfht.prefs.showItem.value == SHOW_TITLE_HOVER || bfht.prefs.showItem.value == SHOW_URL_HOVER)
+					aEvent.target.setAttribute("label", aEvent.target._label2);
 
-				// Show history item's uri in the status bar when hovering, and clear on exit
-				_listen(window, menupopup, "DOMMenuItemActive", function(aEvent)
-				{
-					if (bfht.prefs.showItem.value == SHOW_TITLE_HOVER || bfht.prefs.showItem.value == SHOW_URL_HOVER)
-						aEvent.target.setAttribute("label", aEvent.target._label2);
+				// Only the current page should have the checked attribute, so skip it
+				if (!aEvent.target.hasAttribute("checked"))
+					XULBrowserWindow.setOverLink(aEvent.target.getAttribute("uri"));
+			}, false);
 
-					// Only the current page should have the checked attribute, so skip it
-					if (!aEvent.target.hasAttribute("checked"))
-						XULBrowserWindow.setOverLink(aEvent.target.getAttribute("uri"));
-				}, false);
-
-				_listen(window, menupopup, "DOMMenuItemInactive", function(aEvent)
-				{
-					if (bfht.prefs.showItem.value == SHOW_TITLE_HOVER || bfht.prefs.showItem.value == SHOW_URL_HOVER)
-						aEvent.target.setAttribute("label", aEvent.target._label);
-
-					XULBrowserWindow.setOverLink("");
-				}
-				, false);
-
-				_listen(window, menupopup, "popupshown", function(e)
-				{
-					if (menupopup.hasAttribute("hide"))
-						menupopup.hidePopup();
-				}, true);
-
-				_listen(window, menupopup, "popuphidden", function(e)
-				{
-					popuphidden(menupopup);
-				}, true);
-
-				_listen(window, menupopup, "click", function(e)
-				{
-					if (e.button == 2 && bfht.prefs.rightClick.value)
-					{
-						e.stopPropagation();
-						e.preventDefault();
-						if (bfht.prefs.rightClick.value == RIGHTCLICK_MENU)
-						{
-							menuitemMenu.bfht = e.target;
-							menuitemMenu.openPopup(e.target, "after_pointer", 0, 0, false);
-						}
-						else
-						{
-							copy(e.target.getAttribute("uri"))
-							menupopup.hidePopup();
-						}
-					}
-				}, true);
-
-				unload(function()
-				{
-					menupopup.parentNode.replaceChild(menupopup.origNode, menupopup);
-				}, window);
-			}//(!menupopup.origNode)
-
-			//work around for an issue, that doesn't scroll to correct item on first opening and incorrect number of items shown on first open.
-			function menupopupReopen()
+			_listen(window, menupopup, "DOMMenuItemInactive", function(aEvent)
 			{
-				let n = (new Date()).getTime();
-				menupopup.setAttribute("hide", true);
-				let func = function()
+				if (bfht.prefs.showItem.value == SHOW_TITLE_HOVER || bfht.prefs.showItem.value == SHOW_URL_HOVER)
+					aEvent.target.setAttribute("label", aEvent.target._label);
+
+				XULBrowserWindow.setOverLink("");
+			}
+			, false);
+
+			_listen(window, menupopup, "popupshown", function(e)
+			{
+				if (menupopup.hasAttribute("hide"))
+					menupopup.hidePopup();
+			}, true);
+
+			_listen(window, menupopup, "popuphidden", function(e)
+			{
+				popuphidden(menupopup);
+			}, true);
+
+			_listen(window, menupopup, "click", function(e)
+			{
+				if (e.button == 2 && bfht.prefs.rightClick.value)
 				{
-					if (bfht.prefs.overflow.value != OVERFLOW_SCROLL)
+					e.stopPropagation();
+					e.preventDefault();
+					if (bfht.prefs.rightClick.value == RIGHTCLICK_MENU)
 					{
-						//work around for an issue when buttons shown after switching from scrollbars mode
-						let n = bfht.prefs.num.value;
-						let o = bfht.prefs.overflow.value;
-						bfht.prefs.num.value = 1;
-						bfht.prefs.overflow.value = OVERFLOW_BUTTONS;
-						menupopup.openPopup();
-						bfht.prefs.num.value = n;
-						bfht.prefs.overflow.value = o;
+						menuitemMenu.bfht = e.target;
+						menuitemMenu.setAttribute("tooltiptext", e.target.getAttribute("label") + "\n" + e.target.getAttribute("uri"));
+//							menuitemMenu.openPopup(null, "after_pointer", 0, 0, false);
+						menuitemMenu.openPopup(null, null, e.clientX, e.clientY, false);
 					}
 					else
-						menupopup.openPopup();
+					{
+						copy(e.target.getAttribute("uri"))
+						menupopup.hidePopup();
+					}
 				}
-				//events not firing properly for popups opened in async mode, therefore we must open them in sync.
-				//as a precation create a timeout in case popuphidden event not fired.
-				if (bfht.popups && n - bfht.popups < 1000)
-				{
-					menupopup.bfht.reopen = async(menupopupReopen, 0, menupopup.bfht.reopen);
-					return;
-				}
-				bfht.popups = n;
-				//using async otherwise popupshown event doesn't fire when menupopup was opened and user clicked on a setting to change.
-				menupopup.bfht.reopen = async(func, 0, menupopup.bfht.reopen);
-			}
-			menupopupReopen()
+			}, true);
+
+			unload(function()
+			{
+				menupopup.parentNode.replaceChild(menupopup.origNode, menupopup);
+			}, window);
+		}//(!menupopup.origNode)
+
+		//work around for an issue, that doesn't scroll to correct item and incorrect number of items shown on first opening.
+		if (id == "backForwardMenu")
+			menupopupReopen(menupopup)
+	}
+	function menupopupReopen(menupopup)
+	{
+		let n = (new Date()).getTime();
+		menupopup.setAttribute("hide", true);
+		//events not firing properly for popups opened in async mode, therefore we must open them in sync.
+		//as a precation create a timeout in case popuphidden event not fired.
+		if (bfht.popups && n - bfht.popups < 1000)
+		{
+			menupopup.bfht.reopen = async(function()
+			{
+				menupopupReopen(menupopup);
+			}, 0, menupopup.bfht.reopen);
+			return;
 		}
+		bfht.popups = n;
+		//using async otherwise popupshown event doesn't fire when menupopup was opened and user clicked on a setting to change.
+		menupopup.bfht.reopen = async(function()
+		{
+			if (bfht.prefs.overflow.value != OVERFLOW_SCROLL)
+			{
+				//work around for an issue when buttons shown after switching from scrollbars mode
+				let n = bfht.prefs.num.value;
+				let o = bfht.prefs.overflow.value;
+				bfht.prefs.num.value = 1;
+				bfht.prefs.overflow.value = OVERFLOW_BUTTONS;
+				menupopup.openPopup();
+				bfht.prefs.num.value = n;
+				bfht.prefs.overflow.value = o;
+			}
+			else
+				menupopup.openPopup();
+		}, 0, menupopup.bfht.reopen);
+	}
+	function overflowInit()
+	{
+
 		fixPopup("backForwardMenu");
-//		fixPopup("back-button");
-//		fixPopup("forward-button");
+		fixPopup("back-button"); //long left click
+		fixPopup("forward-button"); //long left click
 	} //end overflowInit()
 
 	Services.obs.addObserver(overflowInit, "bfht_overlowInit", false);
@@ -570,7 +612,7 @@ function FillHistoryMenu(aParent) {
 			{
 				case bfht.SHOW_TITLE:
 				case bfht.SHOW_TITLE_HOVER:
-						item._label = TMP_compat(entry) || entry.title;
+						item._label = TMP_compat(entry) || uri;
 						item._label2 = uri;
 					break;
 				case bfht.SHOW_URL:
@@ -579,6 +621,7 @@ function FillHistoryMenu(aParent) {
 						item._label2 = TMP_compat(entry) || uri;
 					break;
 			}
+			item.title = TMP_compat(entry) || uri
 			item._label = numBefore + item._label + numAfter;
 			item._label2 = numBefore + item._label2 + numAfter;
 			item.setAttribute("label", item._label);
@@ -724,7 +767,10 @@ function addonOptionsHidden(document, aTopic, aData)
 	//if it's the last tab with options, unload the style
 	//if user is refreshing the tab, to avoid flashing unstyled options wait 1sec
 	if (!aboutAddons.length)
-		addonOptionsHidden._timer = async(function(){unloadStyles(["options"])}, 1000, addonOptionsHidden._timer);
+		addonOptionsHidden._timer = async(function()
+		{
+			unloadStyles(["options"])
+		}, 1000, addonOptionsHidden._timer);
 }//addonOptionsHidden()
 
 function addonOptionsDisplayed(document, aTopic, aData)
@@ -1164,7 +1210,13 @@ function showChangesLog(window, type, demo)
 	if (type & CHANGESLOG_NOTIFICATION)
 		try
 		{
-			let notifListener = {
+			let	aURL = this.addon.getResourceURI("changes.txt").spec,
+					utf8Converter = Cc["@mozilla.org/intl/utf8converterservice;1"].getService(Ci.nsIUTF8ConverterService),
+					ioService = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOService),
+					scriptableStream = Cc["@mozilla.org/scriptableinputstream;1"].getService(Ci.nsIScriptableInputStream),
+					channel = ioService.newChannel(aURL,null,null),
+					input = channel.open(),
+					notifListener = {
 						observe: function(aSubject, aTopic, aData)
 						{
 							if (aTopic == 'alertclickcallback')
@@ -1172,16 +1224,7 @@ function showChangesLog(window, type, demo)
 								showChangesLog(window);
 							}
 						}
-				},
-				aURL = this.addon.getResourceURI("changes.txt").spec,
-				utf8Converter = Components.classes["@mozilla.org/intl/utf8converterservice;1"]
-													.getService(Components.interfaces.nsIUTF8ConverterService),
-				ioService = Components.classes["@mozilla.org/network/io-service;1"]
-											.getService(Components.interfaces.nsIIOService),
-				scriptableStream = Components.classes["@mozilla.org/scriptableinputstream;1"]
-											.getService(Components.interfaces.nsIScriptableInputStream),
-				channel = ioService.newChannel(aURL,null,null),
-				input = channel.open();
+					};
 
 			scriptableStream.init(input);
 			let str = scriptableStream.read(input.available());
@@ -1212,11 +1255,10 @@ function showChangesLog(window, type, demo)
 				}
 				strV = (new RegExp("([\\s\\S]+)^v" + RegExpEscape(prevVersion) + " \\(" , "m")).exec(str);
 				if (strV)
-				{
 					str = strV[1];
-				}
+
 			}
-			bfht.notification.showAlertNotification(	'chrome://bfht/skin/icon.png',
+			bfht.notification.showAlertNotification(	'chrome://bfht/skin/logo.png',
 																								addon.name + " " + _("updated").replace("{old}", "v" + prevVersion).replace("{new}", "v" + addon.version),
 																								str.replace(/^\s+|\s+$/g, ""),
 																								true,

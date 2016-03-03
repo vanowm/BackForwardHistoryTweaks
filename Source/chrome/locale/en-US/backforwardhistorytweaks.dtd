@@ -13,6 +13,7 @@
 <!ENTITY changesLog.menu.hightlight 				"Hightlight">
 <!ENTITY changesLog.options									"Options">
 <!ENTITY changesLog.options.addon						"Addon options">
+<!ENTITY changesLog.copied									"Copied to clipboard">
 
 <!ENTITY options.overflow										"Overflow">
 <!ENTITY options.overflow.desc							"Allow scrolling if number of history items is larger then shown on screen.">
@@ -57,7 +58,6 @@
 <!ENTITY options.support.website						"Support site">
 <!ENTITY options.support.email							"Email">
 <!ENTITY options.homepage 									"Homepage">
-
 <!ENTITY options.rightClick									"Right click">
 <!ENTITY options.rightClick.desc						"Right click on history items">
 <!ENTITY options.rightClick.0								"Default">
