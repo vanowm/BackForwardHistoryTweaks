@@ -7,6 +7,9 @@ Legend:
 * = Changed
 - = Removed
 
+v1.4.1 (2016-03-04)
+	! issue #6 (History items shown as url when TabMix Plus is enabled)
+
 v1.4 (2016-03-03)
 	+ message when address copied to clipboard
 	+ copy title to clipboard

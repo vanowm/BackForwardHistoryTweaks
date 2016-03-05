@@ -464,7 +464,7 @@ function FillHistoryMenu(aParent) {
 	//TMP compatibility replaced all entry.title with TMP_Places.getTitleFromBookmark(entry.URI.spec)
 	function TMP_compat(e)
 	{
-		return "TMP_Places" in window && "getTitleFromBookmark" in window.TMP_Places ? window.TMP_Places.getTitleFromBookmark(e.url) : e.title || e.url;
+		return "TMP_Places" in window && "getTitleFromBookmark" in window.TMP_Places ? window.TMP_Places.getTitleFromBookmark(e.url, e.title) : e.title || e.url;
 	}
   // Remove old entries if any
   let children = aParent.childNodes;
