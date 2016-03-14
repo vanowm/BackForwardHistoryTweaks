@@ -28,3 +28,15 @@ menupopup[hide] *
 {
 	list-style-image:url("chrome://bfht/skin/settings.png") !important;
 }
+
+menupopup[contextOpened] menuitem[disabled="true"]
+{
+	opacity: 0.5;
+	color: inherit !important;
+}
+
+.popup-notification-icon[popupid="bfht-update"] {
+  list-style-image: url("chrome://bfht/skin/logo.png");
+	width: 59px !important;
+	height: 36px !important;
+}

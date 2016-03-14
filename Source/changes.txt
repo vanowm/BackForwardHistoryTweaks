@@ -7,8 +7,14 @@ Legend:
 * = Changed
 - = Removed
 
+v1.5 (2016-03-14)
+	+ hidden setting extensions.backforwardhistorytweaks.curFavIcon which controls issue #7 (Add fav icon for current site)
+	+ when clicked on addon's email support link ask if user would like include additional information about enabled extensions, plugins, themes into the email
+	+ one more notification type to user's selection when addon updated
+	! issue #8 (History items can be interacted with, when context menu is opened)
+
 v1.4.1 (2016-03-04)
-	! issue #6 (History items shown as url when TabMix Plus is enabled)
+	! issue #6 (History items shown as URL when TabMix Plus is enabled)
 
 v1.4 (2016-03-03)
 	+ message when address copied to clipboard

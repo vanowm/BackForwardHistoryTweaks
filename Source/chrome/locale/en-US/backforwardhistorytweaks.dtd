@@ -1,20 +1,3 @@
-<!ENTITY changesLog.title 									"Changes log">
-<!ENTITY changesLog.support.title 					"Contact info:">
-<!ENTITY changesLog.support 								"Bug reports and feature requests please submit at">
-<!ENTITY changesLog.support.website 				"support site">
-<!ENTITY changesLog.support.via 						"or via">
-<!ENTITY changesLog.support.email 					"email">
-<!ENTITY changesLog.more 										"More info at">
-<!ENTITY changesLog.here 										"homepage">
-<!ENTITY changesLog.menu.showOnUpdates 			"Notify after updates">
-<!ENTITY changesLog.menu.showOnUpdates.desc	"Get notified when new version installed">
-<!ENTITY changesLog.menu.legend 						"Legend">
-<!ENTITY changesLog.menu.wrap								"Wrap">
-<!ENTITY changesLog.menu.hightlight 				"Hightlight">
-<!ENTITY changesLog.options									"Options">
-<!ENTITY changesLog.options.addon						"Addon options">
-<!ENTITY changesLog.copied									"Copied to clipboard">
-
 <!ENTITY options.overflow										"Overflow">
 <!ENTITY options.overflow.desc							"Allow scrolling if number of history items is larger then shown on screen.">
 <!ENTITY options.overflow.0									"Default">
@@ -46,8 +29,10 @@
 <!ENTITY options.showChangesLog							"Show">
 <!ENTITY options.showChangesLog.desc				"Show changes log after each update.">
 <!ENTITY options.showChangesLog.button			"changes log">
-<!ENTITY options.showChangesLogNotif				"Notification">
-<!ENTITY options.showChangesLogNotif.desc		"Show partial changes log as notification popup">
+<!ENTITY options.showChangesLogNotif1				"Notification1">
+<!ENTITY options.showChangesLogNotif1.desc	"Show notification popup on address bar">
+<!ENTITY options.showChangesLogNotif2				"Notification2">
+<!ENTITY options.showChangesLogNotif2.desc	"Show partial changes log as notification popup (not all OS support this)">
 <!ENTITY options.showChangesLogFull					"Full changes log">
 <!ENTITY options.showChangesLogFull.desc		"Open full changes log in a tab">
 <!ENTITY options.combine										"Combine back and forward lists">

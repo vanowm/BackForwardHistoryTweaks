@@ -4,8 +4,10 @@ Cu.import("resource://gre/modules/AddonManager.jsm");
 
 var changesLog = {
 	addon: null,
-	pref: Services.prefs.getBranch("extensions.backforwardhistorytweaks."),
-
+	PREF_BRANCH: PREF_BRANCH,
+	pref: null,
+	GUID: GUID,
+	_copyIssueUrl: 0,
 	decode: function(t)
 	{
 		t = t.toString();
@@ -26,7 +28,7 @@ var changesLog = {
 	{
 		changesLog.statusText("");
 	},
-	
+
 	statusText: function(txt)
 	{
 		let status = "XULBrowserWindow" in changesLog.rootWin ? changesLog.rootWin.XULBrowserWindow : null;
@@ -66,7 +68,7 @@ var changesLog = {
 
 		changesLog.copy.timer = changesLog.async(function()
 		{
-			changesLog.statusText(document.getElementById("changesLogLink").getAttribute("copied") + ": " + txt);
+			changesLog.statusText(changesLog._("copied") + ": " + txt);
 			changesLog.copy.timer = changesLog.async(function()
 			{
 				changesLog.statusText("");
@@ -80,7 +82,7 @@ var changesLog = {
 			timer.cancel();
 		else
 			timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-	
+
 		timer.init({observe:function()
 		{
 			callback();
@@ -97,8 +99,19 @@ var changesLog = {
 			{
 //				let txt = sel.getRangeAt(0).toString();
 				let txt = sel.toString();
+				if (this._copyIssueUrl && ISSUESSITE)
+				{
+					txt = txt.replace(/([ ,])(#([0-9]+))/g, function(a, b, c, d)
+					{
+						return a + " (" + ISSUESSITE + d + ")";
+					});
+				}
 				changesLog.copy(txt);
 			}
+		}
+		else if (e.originalTarget.id == "changesLogCopyLink")
+		{
+			changesLog.copy(document.popupNode.hasAttribute("linkCopy") ? document.popupNode.getAttribute("linkCopy") : document.popupNode.getAttribute("link"));
 		}
 		else if (e.originalTarget.id == "changesLogSelectAll")
 		{
@@ -110,11 +123,15 @@ var changesLog = {
 
 	popup: function(e)
 	{
-		let txt = window.getSelection().toString();
+		let txt = window.getSelection().toString(),
+				link = document.popupNode.hasAttribute("linkCopy") ? document.popupNode.getAttribute("linkCopy") : document.popupNode.getAttribute("link");
 		if (txt)
 			document.getElementById("changesLogCopy").removeAttribute("disabled");
 		else
 			document.getElementById("changesLogCopy").setAttribute("disabled", true);
+
+		document.getElementById("changesLogCopy").collapsed = !txt && link;
+		document.getElementById("changesLogCopyLink").collapsed = !link;
 	},
 
 	highlight: function(e)
@@ -200,6 +217,27 @@ var changesLog = {
 		this.onResize();
 	},
 
+	copyIssueUrl: function(e)
+	{
+		let val = Number(document.getElementById("changesLogCopyIssueUrl").getAttribute("value"))+1;
+		if (val > 1 || val < 0)
+			val = 0;
+		document.getElementById("changesLogCopyIssueUrl").setAttribute("value", val);
+		this.showCopyIssueUrl();
+	},
+
+	showCopyIssueUrl: function()
+	{
+		let c = document.getElementById("changesLogCopyIssueUrl");
+		let val = Number(c.getAttribute("value"));
+		if (val == 1)
+			c.setAttribute("checked", true);
+		else
+			c.removeAttribute("checked");
+
+		this._copyIssueUrl = val;
+	},
+
 	openOptions: function()
 	{
 		Services.wm.getMostRecentWindow('navigator:browser').BrowserOpenAddonsMgr("addons://detail/" + changesLog.addon.id + "/preferences");
@@ -224,22 +262,27 @@ var changesLog = {
 
 	onload: function()
 	{
-		AddonManager.getAddonByID("backforwardhistorytweaks@vano", function(addon)
+		AddonManager.getAddonByID(changesLog.GUID, function(addon)
 		{
 			changesLog.addon = addon;
 			changesLog.init();
 		});
 	},
 
+	RegExpEscape: function(string)
+	{
+		return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // $& means the whole matched string
+	},
+
 	fixUrl: function(url)
 	{
 		let tags = {
-					OS: escape(Services.appinfo.OS + " (" + Services.appinfo.XPCOMABI + ")"),
-					VER: escape(this.addon.version),
-					APP: escape(Services.appinfo.name + " " + Services.appinfo.version),
+					OS: encodeURIComponent(Services.appinfo.OS + " (" + Services.appinfo.XPCOMABI + ")"),
+					VER: encodeURIComponent(this.addon.version),
+					APP: encodeURIComponent(Services.appinfo.name + " v" + Services.appinfo.version),
 					EMAIL: escape(this.decode(EMAIL)),
 					EMAILRAW: this.decode(EMAIL),
-					NAME: escape(this.addon.name),
+					NAME: encodeURIComponent(this.addon.name),
 					NAMERAW: this.addon.name
 				}
 		let reg = new RegExp("\{([A-Z]+)\}", "gm");
@@ -254,6 +297,7 @@ var changesLog = {
 
 	init: function()
 	{
+		this.pref = Services.prefs.getBranch(this.PREF_BRANCH);
 		let changesLogObj = document.getElementById("changesLog"),
 				aURL = this.addon.getResourceURI("changes.txt").spec,
 				utf8Converter = Cc["@mozilla.org/intl/utf8converterservice;1"]
@@ -262,12 +306,36 @@ var changesLog = {
 											.getService(Ci.nsIIOService),
 				scriptableStream = Cc["@mozilla.org/scriptableinputstream;1"]
 											.getService(Ci.nsIScriptableInputStream),
-				channel = ioService.newChannel(aURL,null,null),
+				channel,
 				array,
-				title;
+				title,
+				strings = Cc["@mozilla.org/intl/stringbundle;1"]
+										.getService(Ci.nsIStringBundleService)
+										.createBundle("chrome://" + ADDONDOMAIN + "/locale/main.properties"),
+				_ = function(s)
+				{
+					return strings.GetStringFromName(s);
+				};
+		try
+		{
+			channel = ioService.newChannel(aURL,null,null);
+		}
+		catch(e) //WHAT THE FUCK, MOZILLA?! HOW ABOUT YOU UPDATE THE DAMN DOCUMENTATION BEFORE YOU REMOVE SHIT WITHOUT BACKWARDS COMPATIBILITY?
+		{
+			channel = ioService.newChannel2(aURL,null,null,
+																			null,      // aLoadingNode
+																			Services.scriptSecurityManager.getSystemPrincipal(),
+																			null,      // aTriggeringPrincipal
+																			Ci.nsILoadInfo.SEC_NORMAL,
+																			Ci.nsIContentPolicy.TYPE_INTERNAL_IMAGE
+			);
+		}
+		this._ = _;
 		document.title = this.addon.name + " " + document.getElementById("changesLogTitle").value;
 		document.getElementById("changesLogTitle").value = document.title;
-
+		document.getElementById("changesLogCopyLink").setAttribute("label", _("menu_copy_url"));
+		document.getElementById("changesLogCopyLink").setAttribute("accesskey", _("menu_copy_url_key"));
+		document.getElementById("changesLogLinkCopy").setAttribute("label", _("menu_copy_url"));
 		this.rootWin =  window.QueryInterface(Ci.nsIInterfaceRequestor)
 												.getInterface(Ci.nsIWebNavigation)
 												.QueryInterface(Ci.nsIDocShellTreeItem)
@@ -284,10 +352,75 @@ var changesLog = {
 		sup.setAttribute("link", HOMEPAGE);
 		sup.setAttribute("tooltiptext", HOMEPAGE);
 		sup = document.getElementById("supportEmail");
-		sup.setAttribute("href", this.fixUrl("mailto:{NAME} support<{EMAIL}>?subject={NAME}%20support&body=%0A%0A_______%0AAddon:%20{NAME}%20v{VER}%0AOS:%20{OS}%0AApp:%20{APP}"));
+//		sup.setAttribute("href", this.fixUrl("mailto:{NAME} support<{EMAIL}>?subject={NAME}+support&body=%0A%0A_______%0AAddon:+{NAME}+v{VER}%0AOS:+{OS}%0AApp:+{APP}"));
 		sup.setAttribute("link", this.fixUrl("{EMAIL}"));
 		sup.setAttribute("linkCopy", this.fixUrl("{NAMERAW} support<{EMAILRAW}>"));
 		sup.setAttribute("tooltiptext", this.fixUrl("{EMAIL}"));
+		function promptExtList (e)
+		{
+			if (e.button == 2)
+				return;
+
+			if (e.target.hasAttribute("href"))
+			{
+				e.target.removeAttribute("href");
+				return false;
+			}
+			else
+			{
+				let href = changesLog.fixUrl("mailto:{NAME} support<{EMAIL}>?subject={NAME}&body=%0A%0A__________%0A [Extension]%0A{NAME} v{VER}%0A%0A [Program]%0A{APP}%0A%0A [OS]%0A{OS}"),
+						promptService = Cc["@mozilla.org/embedcomp/prompt-service;1"].getService(Ci.nsIPromptService),
+						button = promptService.confirmEx(window,
+											_("addExtensionsTitle"),
+											_("addExtensions"),
+											promptService.BUTTON_POS_0 * promptService.BUTTON_TITLE_YES + promptService.BUTTON_POS_1 * promptService.BUTTON_TITLE_NO,
+											"",
+											"",
+											"",
+											null,
+											{});
+				function callback(list)
+				{
+					let addons = {extension:[],theme:[],plugin:[]};
+					for(let i in list)
+					{
+						if (list[i].isActive)
+						{
+							if (!addons[list[i].type])
+								addons[list[i].type] = []
+
+							addons[list[i].type].push(list[i].name + " v" + list[i].version + " " + list[i].id.replace("@", "{a}"));
+						}
+					}
+					list = "";
+					for(let i in addons)
+					{
+						let t = addons[i].join("\n");
+						if (t)
+							list += "\n\n [" + i.charAt(0).toUpperCase() + i.slice(1) + (addons[i].length > 1 ? "s" : "") + "]\n" + t;
+					}
+					if (list)
+						href += encodeURIComponent(list);
+
+					e.target.setAttribute("href", href);
+					e.target.dispatchEvent(new window.MouseEvent('click', {
+						'view': window,
+						'bubbles': false,
+						'cancelable': true
+					}));
+				}
+				if (button)
+					callback([]);
+				else
+					AddonManager.getAllAddons(callback);
+
+			}
+			e.stopPropagation();
+			e.preventDefault();
+		}
+		sup.addEventListener("click", promptExtList, false);
+
+
 		changesLogObj.setAttribute("highlight", document.getElementById("changesLogHightlight").getAttribute("value"));
 		changesLogObj.setAttribute("wrap", document.getElementById("changesLogWrap").getAttribute("value"));
 		let input = channel.open();
@@ -392,45 +525,98 @@ var changesLog = {
 				hbox.setAttribute("line", "");
 
 			let line = array[i].substr(txt).trim(),
-					list = [],
-					reg = /([ ,])(#([0-9]+))/g,
-					issue;
+					listIssue = [],
+					regIssue = /([ ,])(#([0-9]+))/g,
+					issue,
+					list = [];
 
-			while(issue = reg.exec(line))
-			{
-				list.push(issue);
-			}
-			
-			if (ISSUESSITE && list.length)
+			while(issue = regIssue.exec(line))
+				listIssue.push(issue);
+
+			if (ISSUESSITE && listIssue.length)
 			{
 				let start = 0;
-				for(let i = 0; i < list.length; i++)
+				for(let i = 0; i < listIssue.length; i++)
 				{
-					let part = list[i],
+					let part = listIssue[i],
 							end = part.index + part[1].length,
-							text = line.substring(start, end);
+							text = line.substring(start, end),
+							ll;
 					start = end + part[2].length;
-					let ll = document.createElement("description");
-					ll.textContent = text;
-					label.appendChild(ll);
+					list.push(text);
 					ll = document.createElement("label");
 					ll.setAttribute("link", ISSUESSITE + part[3]);
 					ll.setAttribute("href", ISSUESSITE + part[3]);
 					ll.setAttribute("tooltiptext", ISSUESSITE + part[3]);
-					ll.setAttribute("onmouseover", "changesLog.mouseOver(event)");
-					ll.setAttribute("onmouseout", "changesLog.mouseOut(event)");
-					ll.setAttribute("context", "changesLogLink");
+					ll.addEventListener("mouseover", changesLog.mouseOver, true);
+					ll.addEventListener("mouseout", changesLog.mouseOut, true);
 					ll.className = "text-link link issue";
 					ll.textContent = part[2];
-					label.appendChild(ll);
+					list.push(ll);
 				}
-				ll = document.createElement("description");
-				ll.textContent = line.substr(start);
-				label.appendChild(ll);
+				list.push(line.substr(start));
 			}
 			else
-				label.textContent = line;
+				list.push(line);
+//				label.textContent = line;
 
+			let list2 = [];
+			for(let i = 0; i < list.length; i++)
+			{
+				if (typeof(list[i]) == "object")
+					list2.push(list[i]);
+				else
+				{
+					let line = list[i],
+							listSetting = [],
+							regSetting = new RegExp("(setting )(" + this.RegExpEscape(this.PREF_BRANCH) + "[a-z0-9_\\-.]*)", "gi"),
+							setting;
+
+					while(setting = regSetting.exec(line))
+						listSetting.push(setting);
+
+					if (listSetting.length)
+					{
+						let start = 0;
+						for(let i = 0; i < listSetting.length; i++)
+						{
+							let part = listSetting[i],
+									end = part.index + part[1].length,
+									text = line.substring(start, end),
+									ll;
+							start = end + part[2].length;
+							ll = document.createElement("description");
+							ll.textContent = text;
+							list2.push(ll);
+							ll = document.createElement("label");
+							ll.setAttribute("link", "about:config?filter=" + part[2]);
+							ll.addEventListener("mouseover", changesLog.mouseOver, true);
+							ll.addEventListener("mouseout", changesLog.mouseOut, true);
+							ll.addEventListener("click", function(e)
+							{
+								if (e.button != 2)
+									window.open(e.target.getAttribute('link'));
+							}, true);
+							ll.className = "text-link link setting";
+							ll.textContent = part[2];
+							list2.push(ll);
+						}
+						ll = document.createElement("description");
+						ll.textContent = line.substr(start);
+						list2.push(ll);
+					}
+					else
+					{
+						let l = document.createElement("description");
+						l.textContent = list[i];
+						list2.push(l);
+					}
+				}
+			}
+			for(let i = 0; i < list2.length; i++)
+			{
+				label.appendChild(list2[i]);
+			}
 			label.appendChild(document.createTextNode("\n"));
 			vbox.appendChild(label)
 			hbox.appendChild(vbox);
@@ -450,6 +636,7 @@ var changesLog = {
 		this.showLegend();
 		this.showHighlight();
 		this.showWrap();
+		this.showCopyIssueUrl();
 		window.addEventListener("resize", this.onResize, true);
 	} //init()
 };

@@ -70,8 +70,9 @@
 		<button id="bfht_changesLog" type="menu">
 			<panel position="after_start">
 				<vbox id="bfht_changesLogMenu">
-					<checkbox id="bfht_changes_1" value="1" type="checkbox" label="&options.showChangesLogNotif;" tooltiptext="&options.showChangesLogNotif.desc;"/>
-					<checkbox id="bfht_changes_2" value="2" type="checkbox" label="&options.showChangesLogFull;" tooltiptext="&options.showChangesLogFull.desc;"/>
+					<checkbox id="bfht_changes_1" value="1" type="checkbox" label="&options.showChangesLogNotif1;" tooltiptext="&options.showChangesLogNotif1.desc;"/>
+					<checkbox id="bfht_changes_2" value="2" type="checkbox" label="&options.showChangesLogNotif2;" tooltiptext="&options.showChangesLogNotif2.desc;"/>
+					<checkbox id="bfht_changes_4" value="4" type="checkbox" label="&options.showChangesLogFull;" tooltiptext="&options.showChangesLogFull.desc;"/>
 				</vbox>
 			</panel>
 		</button>

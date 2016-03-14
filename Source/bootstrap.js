@@ -1,5 +1,4 @@
 var   {classes: Cc, interfaces: Ci, utils: Cu} = Components,
-			PREF_BRANCH = "extensions.backforwardhistorytweaks.",
 			OVERFLOW_NONE = 0,
 			OVERFLOW_SCROLL = 1,
 			OVERFLOW_BUTTONS = 2,
@@ -16,16 +15,17 @@ var   {classes: Cc, interfaces: Ci, utils: Cu} = Components,
 			SHOW_URL_HOVER = 3,
 			CHANGESLOG_NONE = 0,
 			CHANGESLOG_NOTIFICATION = 1,
-			CHANGESLOG_FULL = 2;
+			CHANGESLOG_NOTIFICATION2 = 2,
+			CHANGESLOG_FULL = 4;
 			RIGHTCLICK_NONE = 0,
 			RIGHTCLICK_MENU = 1,
 			RIGHTCLICK_COPY = 2;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 try{XPCOMUtils.defineLazyModuleGetter(this, "Services", "resource://gre/modules/Services.jsm")}catch(e){};
 try{XPCOMUtils.defineLazyModuleGetter(this, "AddonManager", "resource://gre/modules/AddonManager.jsm")}catch(e){};
-try{XPCOMUtils.defineLazyModuleGetter(this, "BrowserUtils", "resource://gre/modules/BrowserUtils.jsm")}catch(e){}
-try{XPCOMUtils.defineLazyModuleGetter(this, "PlacesUtils","resource://gre/modules/PlacesUtils.jsm")}catch(e){}
-try{XPCOMUtils.defineLazyModuleGetter(this, "SessionStore", "resource:///modules/sessionstore/SessionStore.jsm")}catch(e){}
+try{XPCOMUtils.defineLazyModuleGetter(this, "BrowserUtils", "resource://gre/modules/BrowserUtils.jsm")}catch(e){};
+try{XPCOMUtils.defineLazyModuleGetter(this, "PlacesUtils", "resource://gre/modules/PlacesUtils.jsm")}catch(e){};
+try{XPCOMUtils.defineLazyModuleGetter(this, "SessionStore", "resource:///modules/sessionstore/SessionStore.jsm")}catch(e){};
 
 function include(path)
 {
@@ -41,7 +41,6 @@ var ADDON_ID,
 	self = this,
 	bfht = {
 	//load our global constants as a work around for TabMixPlus compability
-	PREF_BRANCH: PREF_BRANCH,
 	ADDON_ID: ADDON_ID,
 	OVERFLOW_NONE: OVERFLOW_NONE,
 	OVERFLOW_SCROLL: OVERFLOW_SCROLL,
@@ -57,7 +56,8 @@ var ADDON_ID,
 	SHOW_URL: SHOW_URL,
 	SHOW_TITLE_HOVER: SHOW_TITLE_HOVER,
 	SHOW_URL_HOVER: SHOW_URL_HOVER,
-	pref: Services.prefs.getBranch(PREF_BRANCH),
+	PREF_BRANCH: null,
+	pref: null,
 	prefs: {
 		num: {default: 15, value: 15, min: 0, max: 999}, //number of items in list
 		overflow: {default: OVERFLOW_SCROLL, value: OVERFLOW_SCROLL, min: 0, max: 2}, //show scrollbars = 0 none, 1 = scrollbars, 2 = up/down buttons
@@ -68,7 +68,8 @@ var ADDON_ID,
 		order: {default: 1, value: 1, min: 0, max: 1}, //list order: 1 = newest (forward) on top, 0 = newest on bottom
 		version: {default: "", value: ""},
 		rightClick: {default: RIGHTCLICK_MENU, value: RIGHTCLICK_MENU, min:0, max: 3}, //right click on menu item
-		showChangesLog: {default: CHANGESLOG_NOTIFICATION, value: CHANGESLOG_NOTIFICATION, min:0, max: 3}, //show changes log after update
+		curFavIcon: {default: true, value: true}, //show fav icon for current website
+		showChangesLog: {default: CHANGESLOG_NOTIFICATION, value: CHANGESLOG_NOTIFICATION, min:0, max: 7}, //show changes log after update
 	},
 	browser_sessionhistory_max_entries: 50,
 	max_serialize_back: null,
@@ -273,17 +274,16 @@ function windowLoad(window, type)
 					break;
 			}
 		}, true);
-	
-		_listen(window, menuitemMenu, "DOMMenuItemActive", function(aEvent)
+
+		_listen(window, menuitemMenu, "DOMMenuItemActive", function(e)
 		{
 			XULBrowserWindow.setOverLink(menuitemMenu.bfht.getAttribute("uri"));
-		}, false);
-	
-		_listen(window, menuitemMenu, "DOMMenuItemInactive", function(aEvent)
+		}, true);
+
+		_listen(window, menuitemMenu, "DOMMenuItemInactive", function(e)
 		{
 			XULBrowserWindow.setOverLink("");
-		}
-		, false);
+		}, true);
 	}
 
 	function popuphidden(popup)
@@ -306,24 +306,42 @@ function windowLoad(window, type)
 			menupopup.origNode = menupopup.cloneNode(true);
 
 			// Show history item's uri in the status bar when hovering, and clear on exit
-			_listen(window, menupopup, "DOMMenuItemActive", function(aEvent)
+			_listen(window, menupopup, "DOMMenuItemActive", function(e)
 			{
+				if (menuitemMenu.state != "closed")
+					return;
+
+				if (e.target.hasAttribute("current"))
+				{
+					e.target.setAttribute("type", "radio");
+					e.target.setAttribute("checked", true);
+					e.target.className = "unified-nav-current";
+				}
+
 				if (bfht.prefs.showItem.value == SHOW_TITLE_HOVER || bfht.prefs.showItem.value == SHOW_URL_HOVER)
-					aEvent.target.setAttribute("label", aEvent.target._label2);
+					e.target.setAttribute("label", e.target._label2);
 
-				// Only the current page should have the checked attribute, so skip it
-				if (!aEvent.target.hasAttribute("checked"))
-					XULBrowserWindow.setOverLink(aEvent.target.getAttribute("uri"));
-			}, false);
+				XULBrowserWindow.setOverLink(e.target.getAttribute("uri"));
 
-			_listen(window, menupopup, "DOMMenuItemInactive", function(aEvent)
+			}, true);
+
+			_listen(window, menupopup, "DOMMenuItemInactive", function(e)
 			{
+				if (menuitemMenu.state != "closed")
+					return;
+
 				if (bfht.prefs.showItem.value == SHOW_TITLE_HOVER || bfht.prefs.showItem.value == SHOW_URL_HOVER)
-					aEvent.target.setAttribute("label", aEvent.target._label);
+					e.target.setAttribute("label", e.target._label);
 
 				XULBrowserWindow.setOverLink("");
+				if (e.target.hasAttribute("current"))
+				{
+					e.target.removeAttribute("type");
+					e.target.removeAttribute("checked");
+					e.target.className = "unified-nav-current menuitem-iconic menuitem-with-favicon";
+				}
 			}
-			, false);
+			, true);
 
 			_listen(window, menupopup, "popupshown", function(e)
 			{
@@ -338,24 +356,122 @@ function windowLoad(window, type)
 
 			_listen(window, menupopup, "click", function(e)
 			{
-				if (e.button == 2 && bfht.prefs.rightClick.value)
+				if (e.button != 2 && menuitemMenu.state != "closed")
 				{
-					e.stopPropagation();
-					e.preventDefault();
-					if (bfht.prefs.rightClick.value == RIGHTCLICK_MENU)
+					menuitemMenu.hidePopup();
+					let c = menupopup.childNodes;
+					menupopup.removeAttribute("contextOpened");
+					for(let i = 0; i < c.length; i++)
 					{
-						menuitemMenu.bfht = e.target;
-						menuitemMenu.setAttribute("tooltiptext", e.target.getAttribute("label") + "\n" + e.target.getAttribute("uri"));
-//							menuitemMenu.openPopup(null, "after_pointer", 0, 0, false);
-						menuitemMenu.openPopup(null, null, e.clientX, e.clientY, false);
+						c[i].disabled = false;
+						c[i].setAttribute("tooltiptext", c[i]._tooltiptext);
+						if (c[i].hasAttribute("current"))
+						{
+							if (e.target == c[i])
+							{
+								c[i].setAttribute("type", "radio");
+								c[i].setAttribute("checked", true);
+								c[i].className = "unified-nav-current";
+							}
+							else
+							{
+								c[i].removeAttribute("type");
+								c[i].removeAttribute("checked");
+								c[i].className = "unified-nav-current menuitem-iconic menuitem-with-favicon";
+							}
+						}
+						if (e.target == c[i])
+						{
+							menupopup.selectedItem = c[i];
+							menupopup.selectedIndex = i;
+							c[i].setAttribute("_moz-menuactive", true);
+						}
+						else
+						{
+							c[i].removeAttribute("_moz-menuactive");
+						}
+					}
+				}
+				if (e.button != 2 || !bfht.prefs.rightClick.value)
+					return;
+
+				e.stopPropagation();
+				e.preventDefault();
+				if (bfht.prefs.rightClick.value != RIGHTCLICK_MENU)
+				{
+					copy(e.target.getAttribute("uri"))
+					menupopup.hidePopup();
+					return;
+				}
+				menuitemMenu.hidePopup();
+
+				menuitemMenu.bfht = e.target;
+				menuitemMenu.setAttribute("tooltiptext", e.target.getAttribute("label") + "\n" + e.target.getAttribute("uri"));
+				menupopup.setAttribute("contextOpened", true);
+				let c = menupopup.childNodes;
+
+				//preventing history items from interacting when disabled and context menu opened
+				menupopup.DOMMouseScroll = _listen(window, menupopup, "DOMMouseScroll", function(e)
+				{
+					if (menuitemMenu.state == "closed")
+						return;
+
+					e.preventDefault();
+					e.stopPropagation();
+				}, true);
+
+				for(let i = 0; i < c.length; i++)
+				{
+					c[i]._tooltiptext = c[i].getAttribute("tooltiptext");
+					c[i].removeAttribute("tooltiptext");
+					if (e.target == c[i])
+					{
+						menupopup.selectedItem = c[i];
+						menupopup.selectedIndex = i;
+						c[i].setAttribute("_moz-menuactive", true);
+						if (c[i].hasAttribute("current"))
+						{
+							c[i].setAttribute("type", "radio");
+							c[i].setAttribute("checked", true);
+							c[i].className = "unified-nav-current";
+						}
 					}
 					else
 					{
-						copy(e.target.getAttribute("uri"))
-						menupopup.hidePopup();
+						if (c[i].hasAttribute("current"))
+						{
+							c[i].removeAttribute("type");
+							c[i].removeAttribute("checked");
+							c[i].className = "unified-nav-current menuitem-iconic menuitem-with-favicon";
+						}
+						c[i].removeAttribute("_moz-menuactive");
 					}
+					c[i].disabled = c[i] != e.target;
+
+					//preventing history items from interacting when disabled and context menu opened
+					c[i].DOMMenuItemActive = _listen(window, c[i], "DOMMenuItemActive", function(e)
+					{
+						if (menuitemMenu.state == "closed")
+							return;
+
+						menupopup.selectedItem.setAttribute("_moz-menuactive", true);
+						if (e.target != menupopup.selectedItem)
+						{
+							e.preventDefault();
+							e.stopPropagation();
+							e.target.removeAttribute("_moz-menuactive");
+						}
+					}, true);
+					c[i].DOMMenuItemInactive = _listen(window, c[i], "DOMMenuItemInactive", function(e)
+					{
+						if (menuitemMenu.state == "closed")
+							return;
+
+						menupopup.selectedItem.setAttribute("_moz-menuactive", true);
+					}, true);
 				}
-			}, true);
+				menuitemMenu.openPopup(null, null, e.clientX, e.clientY, menupopup.id == "backForwardMenu");
+			}, false);
 
 			unload(function()
 			{
@@ -402,7 +518,6 @@ function windowLoad(window, type)
 	}
 	function overflowInit()
 	{
-
 		fixPopup("backForwardMenu");
 		fixPopup("back-button"); //long left click
 		fixPopup("forward-button"); //long left click
@@ -422,7 +537,7 @@ function windowLoad(window, type)
 			for (let i = 0; i < c.length; i++)
 			{
 				if (c[i].getAttribute("value") == 1 && !bfht.notificationAvailable)
-					c[i].disabled = true; 
+					c[i].disabled = true;
 
 				if (!c[i].disabled && bfht.prefs.showChangesLog.value & Number(c[i].getAttribute("value")))
 				{
@@ -548,7 +663,8 @@ function FillHistoryMenu(aParent) {
 
       // Cache this so that gotoHistoryIndex doesn't need the original index
       item.setAttribute("historyindex", j - index);
-      if (j != index) {
+//      if (j != index) {
+			if (bfht.prefs.curFavIcon.value || j != index) {
 				try
 				{
 					//FF 27+
@@ -581,9 +697,17 @@ function FillHistoryMenu(aParent) {
 //        item.setAttribute("tooltiptext", tooltipBack);
 				tooltip = tooltipBack;
       } else if (j == index) {
-        item.setAttribute("type", "radio");
-        item.setAttribute("checked", "true");
-        item.className = "unified-nav-current";
+				if (bfht.prefs.curFavIcon.value)
+				{
+					item.className = "unified-nav-current menuitem-iconic menuitem-with-favicon";
+					item.setAttribute("current", true);
+				}
+				else
+				{
+	        item.setAttribute("type", "radio");
+	        item.setAttribute("checked", "true");
+	        item.className = "unified-nav-current";
+				}
 //        item.setAttribute("tooltiptext", tooltipCurrent);
 				tooltip = tooltipCurrent;
 				aParent.selectedItem = item;
@@ -963,7 +1087,15 @@ function addonOptionsDisplayed(document, aTopic, aData)
 	listen(window, $("bfht_reset_button"), "click", function(e)
 	{
 		let p = Cc["@mozilla.org/embedcomp/prompt-service;1"].getService(Ci.nsIPromptService);
-		if (!e.button && p.confirm(null, $("bfht_reset").getAttribute("title"), _("confirm")))
+		if (!e.button && !p.confirmEx(window,
+										$("bfht_reset").getAttribute("title"),
+										_("confirm"),
+										p.BUTTON_POS_0 * p.BUTTON_TITLE_YES + p.BUTTON_POS_1 * p.BUTTON_TITLE_NO,
+										"",
+										"",
+										"",
+										null,
+										{}))
 			bfht.setDefaultPrefs(e)
 
 	}, false);
@@ -985,10 +1117,71 @@ function addonOptionsDisplayed(document, aTopic, aData)
 	s = $("bfht_support_email");
 	s.textContent = s.getAttribute("value");
 	s.removeAttribute("value");
-	s.setAttribute("href", bfht.fixUrl("mailto:{NAME} support<{EMAIL}>?subject={NAME}%20support&body=%0A%0A_______%0AAddon:%20{NAME}%20v{VER}%0AOS:%20{OS}%0AApp:%20{APP}"));
+//	s.setAttribute("href", bfht.fixUrl("mailto:{NAME} support<{EMAIL}>?subject={NAME}%20support&body=%0A%0A_______%0AAddon:%20{NAME}%20v{VER}%0AOS:%20{OS}%0AApp:%20{APP}"));
 	s.setAttribute("link", bfht.fixUrl("{EMAIL}"));
 	s.setAttribute("linkCopy", bfht.fixUrl("{NAMERAW} support<{EMAILRAW}>"));
 	s.setAttribute("tooltiptext", bfht.fixUrl("{EMAIL}"));
+	function promptExtList (e)
+	{
+		if (e.target.hasAttribute("href"))
+		{
+			e.target.removeAttribute("href");
+			return false;
+		}
+		else
+		{
+			let href = bfht.fixUrl("mailto:{NAME} support<{EMAIL}>?subject={NAME}&body=%0A%0A__________%0A [Extension]%0A{NAME} v{VER}%0A%0A [Program]%0A{APP}%0A%0A [OS]%0A{OS}"),
+					promptService = Cc["@mozilla.org/embedcomp/prompt-service;1"].getService(Ci.nsIPromptService),
+					button = promptService.confirmEx(window,
+										_("addExtensionsTitle"),
+										_("addExtensions"),
+										promptService.BUTTON_POS_0 * promptService.BUTTON_TITLE_YES + promptService.BUTTON_POS_1 * promptService.BUTTON_TITLE_NO,
+										"",
+										"",
+										"",
+										null,
+										{});
+			function callback(list)
+			{
+				let addons = {extension:[],theme:[],plugin:[]};
+				for(let i in list)
+				{
+					if (list[i].isActive)
+					{
+						if (!addons[list[i].type])
+							addons[list[i].type] = []
+
+						addons[list[i].type].push(list[i].name + " v" + list[i].version + " " + list[i].id.replace("@", "{a}"));
+					}
+				}
+				list = "";
+				for(let i in addons)
+				{
+					let t = addons[i].join("\n");
+					if (t)
+						list += "\n\n [" + i.charAt(0).toUpperCase() + i.slice(1) + (addons[i].length > 1 ? "s" : "") + "]\n" + t;
+				}
+				if (list)
+					href += encodeURIComponent(list);
+
+				e.target.setAttribute("href", href);
+				e.target.dispatchEvent(new window.MouseEvent('click', {
+					'view': window,
+					'bubbles': false,
+					'cancelable': true
+				}));
+			}
+			if (button)
+				callback([]);
+			else
+				AddonManager.getAllAddons(callback);
+
+		}
+		e.stopPropagation();
+		e.preventDefault();
+	}
+	listen(window, s, "click", promptExtList, false);
+
 	$("bfht_num").setAttribute("min", bfht.prefs.num.min);
 	$("bfht_num").setAttribute("max", bfht.prefs.num.max);
 	//a hack to allow use text in the numberbox
@@ -1134,6 +1327,10 @@ function addonOptionsDisplayed(document, aTopic, aData)
 				&& Number(e.explicitOriginalTarget.getAttribute("value")) & CHANGESLOG_NOTIFICATION)
 			showChangesLog(window, CHANGESLOG_NOTIFICATION, true)
 
+		if (e.explicitOriginalTarget.getAttribute("checked")
+				&& Number(e.explicitOriginalTarget.getAttribute("value")) & CHANGESLOG_NOTIFICATION2)
+			showChangesLog(window, CHANGESLOG_NOTIFICATION2, true)
+
 		bfht.pref.setIntPref("showChangesLog", r);
 	});
 	Services.obs.notifyObservers(null, 'bfht_changesLog', null);
@@ -1207,15 +1404,15 @@ function showChangesLog(window, type, demo)
 					.getInterface(Ci.nsIDOMWindow)
 					.switchToTabHavingURI("chrome://bfht/content/changes.xul", true);
 
-	if (type & CHANGESLOG_NOTIFICATION)
+	if (type & CHANGESLOG_NOTIFICATION2)
 		try
 		{
 			let	aURL = this.addon.getResourceURI("changes.txt").spec,
 					utf8Converter = Cc["@mozilla.org/intl/utf8converterservice;1"].getService(Ci.nsIUTF8ConverterService),
 					ioService = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOService),
 					scriptableStream = Cc["@mozilla.org/scriptableinputstream;1"].getService(Ci.nsIScriptableInputStream),
-					channel = ioService.newChannel(aURL,null,null),
-					input = channel.open(),
+					channel,
+					input,
 					notifListener = {
 						observe: function(aSubject, aTopic, aData)
 						{
@@ -1225,6 +1422,21 @@ function showChangesLog(window, type, demo)
 							}
 						}
 					};
+			try
+			{
+				channel = ioService.newChannel(aURL,null,null);
+			}
+			catch(e) //FF48 WHAT THE FUCK, MOZILLA?! HOW ABOUT YOU UPDATE THE DAMN DOCUMENTATION BEFORE YOU REMOVE SHIT WITHOUT BACKWARDS COMPATIBILITY?
+			{
+				channel = ioService.newChannel2(aURL,null,null,
+																				null,      // aLoadingNode
+																				Services.scriptSecurityManager.getSystemPrincipal(),
+																				null,      // aTriggeringPrincipal
+																				Ci.nsILoadInfo.SEC_NORMAL,
+																				Ci.nsIContentPolicy.TYPE_INTERNAL_IMAGE
+				);
+			}
+			input = channel.open();
 
 			scriptableStream.init(input);
 			let str = scriptableStream.read(input.available());
@@ -1237,7 +1449,8 @@ function showChangesLog(window, type, demo)
 				return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // $& means the whole matched string
 			}
 			let strV = (new RegExp("(^v" + RegExpEscape(addon.version) + " \\([\\s\\S]+)" , "m")).exec(str),
-					prevVersion = bfht.prevVersion;
+					prevVersion = bfht.prevVersion.replace("-signed", "");
+
 			if (strV)
 			{
 				str = strV[1];
@@ -1259,13 +1472,64 @@ function showChangesLog(window, type, demo)
 
 			}
 			bfht.notification.showAlertNotification(	'chrome://bfht/skin/logo.png',
-																								addon.name + " " + _("updated").replace("{old}", "v" + prevVersion).replace("{new}", "v" + addon.version),
+																								addon.name + " " + _("updated").replace("{old}", "v" + bfht.prevVersion).replace("{new}", "v" + addon.version),
 																								str.replace(/^\s+|\s+$/g, ""),
 																								true,
 																								null,
 																								notifListener,
 																								addon.name + " " + _("updated"));
 		}catch(e){_dump(e, 1);}
+
+	if (type & CHANGESLOG_NOTIFICATION)
+	{
+		try
+		{
+			if (bfht._notify)
+				bfht._notify.remove()
+
+			Cu.import('resource://gre/modules/PopupNotifications.jsm');
+			let win = window.QueryInterface(Ci.nsIInterfaceRequestor)
+								.getInterface(Ci.nsIWebNavigation)
+								.QueryInterface(Ci.nsIDocShellTreeItem)
+								.rootTreeItem
+								.QueryInterface(Ci.nsIInterfaceRequestor)
+								.getInterface(Ci.nsIDOMWindow),
+					notify  = new PopupNotifications(win.gBrowser,
+											_$(win.document, "notification-popup"),
+											_$(win.document, "notification-popup-box"));
+
+
+			bfht._notify = notify.show(win.gBrowser.selectedBrowser,
+				"bfht-update",
+				addon.name + " " + _("updated").replace("{old}", "v" + bfht.prevVersion).replace("{new}", "v" + addon.version),
+				null, /* anchor ID */
+				{
+					label: _("changesLog"),
+					accessKey: _("changesLog_key"),
+					callback: function() {
+						showChangesLog(window)
+					}
+				},
+				[{  /* secondary action */
+					label: _("menu_options"),
+					accessKey: _("menu_options_key"),
+					callback: function()
+					{
+						bfht._notify.remove();
+						openOptions();
+					},
+					dismiss: true
+				}],
+				{
+					persistWhileVisible: true,
+					learnMoreURL: HOMEPAGE,
+					hideNotNow: true,
+					removeOnDismissal: demo ? true : false
+				}
+			);
+		}catch(e){_dump(e, 1)};
+	}
+
 }//showChangesLog()
 
 function startup(data, reason)
@@ -1277,11 +1541,13 @@ function startup(data, reason)
 	AddonManager.getAddonByID(ADDON_ID, function(a)
 	{
 		addon = a;
+		include("chrome/content/constants.js");
+		bfht.pref = Services.prefs.getBranch(PREF_BRANCH);
+		bfht.PREF_BRANCH = PREF_BRANCH;
 		include("includes/utils.js");
 		include("includes/l10n.js");
 		l10n(addon, "main.properties");
 		unload(l10n.unload);
-		include("chrome/content/constants.js");
 		loadStyles(["style"]);
 
 
@@ -1291,14 +1557,14 @@ function startup(data, reason)
 			bfht.prevVersion = bfht.pref.getCharPref("version");
 		}
 		catch(e){};
-	
+
 		if (bfht.prevVersion != addon.version)
 		{
 			bfht.prefs.version.value = addon.version;
 			bfht.pref.setCharPref("version", addon.version);
-			
+
 			let compare = Cc["@mozilla.org/xpcom/version-comparator;1"].getService(Ci.nsIVersionComparator).compare;
-		
+
 		/*
 		function upgradeMS(
 			full old setting name,
@@ -1321,7 +1587,7 @@ function startup(data, reason)
 				let aCount = {value:0},
 						r = null,
 						p = Cc["@mozilla.org/preferences-service;1"].getService(Ci.nsIPrefService).getBranch("");
-		
+
 				p.getChildList(o, aCount);
 				if (aCount.value != 0)
 				{
@@ -1336,7 +1602,7 @@ function startup(data, reason)
 					}
 					if (d)
 						try{p.deleteBranch(o)}catch(e){};
-		
+
 					if (n !== null && r !== null)
 						try
 						{
@@ -1367,8 +1633,19 @@ function startup(data, reason)
 					bfht.pref.setIntPref("showChangesLog", c);
 				}
 			}
+			if (bfht.prevVersion && compare(bfht.prevVersion, "1.5") < 0 && bfht.pref.prefHasUserValue("showChangesLog"))
+			{
+				upgradeMS(PREF_BRANCH + "showChangesLog", "showChangesLog", false, "Int", "Int", function(val)
+				{
+					r = 0;
+					if (val & 1)
+						r += 2;
+					if (val & 2)
+						r += 4
+					return r;
+				});
+			}
 		}
-
 
 		bfht.setDefaultPrefs();
 		bfht.browser_sessionhistory_max_entries = Services.prefs.getBranch("browser.sessionhistory.").getIntPref("max_entries");
