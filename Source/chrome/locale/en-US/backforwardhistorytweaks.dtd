@@ -48,3 +48,13 @@
 <!ENTITY options.rightClick.0								"Default">
 <!ENTITY options.rightClick.1								"Menu">
 <!ENTITY options.rightClick.2								"Copy to clipboard">
+<!ENTITY options.combined										"Combine back/forward">
+<!ENTITY options.combined.desc							"Show back and forward items in the same list">
+<!ENTITY options.alltabssort								"Sort &quot;All tabs&quot; list">
+<!ENTITY options.alltabssort.desc						"&quot;All tabs&quot; list shows when tabs don't fit in a window (totally unrelated to this addon, I know, but I personally needed it, so here it is)">
+<!ENTITY options.alltabssort.name						"By name">
+<!ENTITY options.alltabssort.name.desc			"Sort by name">
+<!ENTITY options.alltabssort.domain					"By domain">
+<!ENTITY options.alltabssort.domain.desc		"Sort by domain">
+<!ENTITY options.alltabssort.group					"Group by domain">
+<!ENTITY options.alltabssort.group.desc			"Group by domain in the order of appearance">

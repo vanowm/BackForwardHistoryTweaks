@@ -328,7 +328,7 @@ function watchWindows(callback) {
 			if (documentElement.getAttribute("windowtype") == "navigator:browser")
 				callback(window, type);
 		}
-		catch(ex) {}
+		catch(ex) {log(ex)}
 	}
 
 	// Wait for the window to finish loading before running the callback

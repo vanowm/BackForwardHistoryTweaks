@@ -64,15 +64,27 @@
 			</menupopup>
 		</menulist>
 	</setting>
+	<setting id="bfht_combined" type="bool" pref="extensions.backforwardhistorytweaks.combined" title="&options.combined;" desc="&options.combined.desc;" class="bfht"/>
 <!--	<setting id="bfht_combine" type="bool" pref="extensions.backforwardhistorytweaks.combine"/>-->
 	<setting id="bfht_showChangesLog" type="control" title="&options.showChangesLog;" desc="&options.showChangesLog.desc;" class="bfht">
 		<label id="bfht_showChangesLog_button" class="text-link childlabel bfht" value="&options.showChangesLog.button;"/>
-		<button id="bfht_changesLog" type="menu">
+		<button id="bfht_showChangesLog_menu" type="menu">
 			<panel position="after_start">
-				<vbox id="bfht_changesLogMenu">
+				<vbox id="bfht_showChangesLog_box">
 					<checkbox id="bfht_changes_1" value="1" type="checkbox" label="&options.showChangesLogNotif1;" tooltiptext="&options.showChangesLogNotif1.desc;"/>
 					<checkbox id="bfht_changes_2" value="2" type="checkbox" label="&options.showChangesLogNotif2;" tooltiptext="&options.showChangesLogNotif2.desc;"/>
 					<checkbox id="bfht_changes_4" value="4" type="checkbox" label="&options.showChangesLogFull;" tooltiptext="&options.showChangesLogFull.desc;"/>
+				</vbox>
+			</panel>
+		</button>
+	</setting>
+	<setting id="bfht_alltabssort" type="control" title="&options.alltabssort;" desc="&options.alltabssort.desc;" class="bfht">
+		<button id="bfht_alltabssort_menu" type="menu">
+			<panel position="after_start">
+				<vbox id="bfht_alltabssort_box">
+					<checkbox id="bfht_alltabssort_2" value="2" type="checkbox" label="&options.alltabssort.domain;" tooltiptext="&options.alltabssort.domain.desc;"/>
+					<checkbox id="bfht_alltabssort_1" value="1" type="checkbox" label="&options.alltabssort.name;" tooltiptext="&options.alltabssort.name.desc;"/>
+					<checkbox id="bfht_alltabssort_4" value="4" type="checkbox" label="&options.alltabssort.group;" tooltiptext="&options.alltabssort.group.desc;"/>
 				</vbox>
 			</panel>
 		</button>

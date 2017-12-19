@@ -16,10 +16,12 @@ var   {classes: Cc, interfaces: Ci, utils: Cu} = Components,
 			CHANGESLOG_NONE = 0,
 			CHANGESLOG_NOTIFICATION = 1,
 			CHANGESLOG_NOTIFICATION2 = 2,
-			CHANGESLOG_FULL = 4;
+			CHANGESLOG_FULL = 4,
 			RIGHTCLICK_NONE = 0,
 			RIGHTCLICK_MENU = 1,
-			RIGHTCLICK_COPY = 2;
+			RIGHTCLICK_COPY = 2,
+			FORWARD_BUTTON = 1,
+			BACK_BUTTON = 2;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 try{XPCOMUtils.defineLazyModuleGetter(this, "Services", "resource://gre/modules/Services.jsm")}catch(e){};
 try{XPCOMUtils.defineLazyModuleGetter(this, "AddonManager", "resource://gre/modules/AddonManager.jsm")}catch(e){};
@@ -32,10 +34,7 @@ function include(path)
 	Services.scriptloader.loadSubScript(addon.getResourceURI(path).spec, self);
 }
 
-function _dump(t)
-{
-	console.log(t);
-}
+var log = console.log;
 var ADDON_ID,
 	addon = {},
 	self = this,
@@ -56,6 +55,8 @@ var ADDON_ID,
 	SHOW_URL: SHOW_URL,
 	SHOW_TITLE_HOVER: SHOW_TITLE_HOVER,
 	SHOW_URL_HOVER: SHOW_URL_HOVER,
+	FORWARD_BUTTON: FORWARD_BUTTON,
+	BACK_BUTTON: BACK_BUTTON,
 	PREF_BRANCH: null,
 	pref: null,
 	prefs: {
@@ -66,9 +67,12 @@ var ADDON_ID,
 		showItem: {default: SHOW_TITLE, value: SHOW_TITLE, min: 0, max: 3}, //show items as: 0 = title, 1 = url, 2 = title on hover, 3 = url on hover
 		tooltip: {default: TOOLTIP_NONE, value: TOOLTIP_NONE, min: 0, max: 3}, //show website title and/or URL address in tooltip
 		order: {default: 1, value: 1, min: 0, max: 1}, //list order: 1 = newest (forward) on top, 0 = newest on bottom
-		version: {default: "", value: ""},
+		version: {default: "install", value: ""},
+//		versionPrev: {default: "install", value: ""},
 		rightClick: {default: RIGHTCLICK_MENU, value: RIGHTCLICK_MENU, min:0, max: 3}, //right click on menu item
 		curFavIcon: {default: true, value: true}, //show fav icon for current website
+		combined: {default: true, value: true}, //combine history list for back and forward buttons into one
+		alltabssort: {default: 0, value: 0, min: 0, max: 7}, //sort all tabs list, bitwise: 1 = by name, 2 = by domain
 		showChangesLog: {default: CHANGESLOG_NOTIFICATION, value: CHANGESLOG_NOTIFICATION, min:0, max: 7}, //show changes log after update
 	},
 	browser_sessionhistory_max_entries: 50,
@@ -77,13 +81,96 @@ var ADDON_ID,
 	notificationAvailable: true,
 	prevVersion: null,
 	popups: 0,
+	prefString: function(pref, key, val)
+	{
+		let r, er = [];
+		if (typeof(val) == "undefined")
+		{
+			try
+			{
+				r = pref.getComplexValue(key, Ci.nsISupportsString).data;
+			}
+			catch(e)
+			{
+				er.push(e);
+				try
+				{
+					r = pref.getStringPref(key);
+				}
+				catch(e)
+				{
+					er.push(e);
+					try
+					{
+						r = pref.getComplexValue(key, Ci.nsIPrefLocalizedString).data;
+					}
+					catch(e)
+					{
+						er.push(e);
+						try
+						{
+							r = pref.getCharPref(key);
+						}
+						catch(e)
+						{
+							er.push(e);
+							log(er);
+						}
+					}
+				}
+			}
+		}
+		else
+		{
+			try
+			{
+				let str = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString);
+				str.data = val;
+				r = pref.setComplexValue(key, Ci.nsISupportsString, str);
+			}
+			catch(e)
+			{
+				er.push(e);
+				try
+				{
+					r = pref.setStringPref(key,val);
+				}
+				catch(e)
+				{
+					er.push(e);
+					try
+					{
+						let str = Cc["@mozilla.org/pref-localizedstring;1"].createInstance(Ci.nsIPrefLocalizedString);
+						str.data = val;
+						r = pref.setComplexValue(key, Ci.nsIPrefLocalizedString, str);
+					}
+					catch(e)
+					{
+						er.push(e);
+						try
+						{
+							r = pref.setCharPref(key, val);
+						}
+						catch(e)
+						{
+							er.push(e);
+							log(er);
+						}
+					}
+				}
+			}
+		}
+		return r;
+	},//prefString()
+
 	setDefaultPrefs: function(reset)
 	{
 		let obj = bfht.prefs,
 				name = "", domain = "",
 				type, branch = Services.prefs.getDefaultBranch(PREF_BRANCH);
-		for (let [key, val] in Iterator(obj))
+		for (let key in obj)
 		{
+			let val = obj[key];
 			name = domain + key;
 			switch (typeof(val.default))
 			{
@@ -132,14 +219,12 @@ var ADDON_ID,
 						if (type != Ci.nsIPrefBranch.PREF_STRING && type != Ci.nsIPrefBranch.PREF_INVALID)
 							branch.deleteBranch(name);
 
-						let str = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString);
-						str.data = val.default;
-						branch.setComplexValue(name, Ci.nsISupportsString, str);
-						val.value = bfht.pref.getComplexValue(name, Ci.nsISupportsString).data;
+						bfht.prefString(branch, name, val.default);
+						val.value = bfht.prefString(bfht.pref, name);
 						if (reset || ("regexp" in val && val.value.match(val.regexp)))
 						{
 							if (reset && name != "version")
-								bfht.pref.setComplexValue(name, Ci.nsISupportsString, str);
+								bfht.prefString(bfht.pref, name, val.default);
 						}
 					break;
 				default:
@@ -159,6 +244,39 @@ var ADDON_ID,
 		return val;
 	},
 
+	getPrefs: function(type)
+	{
+		let l = this.pref.getChildList(""),
+				r = {};
+		l.sort();
+		for (let i of l)
+		{
+			switch(this.pref.getPrefType(i))
+			{
+				case Ci.nsIPrefBranch.PREF_BOOL:
+					r[i] = this.pref.getBoolPref(i);
+					break;
+				case Ci.nsIPrefBranch.PREF_INT:
+					r[i] = this.pref.getIntPref(i);
+					break;
+				case Ci.nsIPrefBranch.PREF_STRING:
+					
+					r[i] = this.prefString(this.pref, i);
+					break;
+			}
+		}
+		if (type)
+			return r;
+		else
+		{
+			l = [];
+			for (let i in r)
+				l.push(i + ": " + r[i]);
+
+			return l.join("\n");
+		}
+	},
+
 	fixUrl: function(url)
 	{
 		let tags = {
@@ -168,7 +286,10 @@ var ADDON_ID,
 					EMAIL: escape(this.decode(EMAIL)),
 					NAME: escape(addon.name),
 					EMAILRAW: this.decode(EMAIL),
-					NAMERAW: addon.name
+					NAMERAW: addon.name,
+					LOCALE: encodeURIComponent(Cc["@mozilla.org/chrome/chrome-registry;1"].getService(Ci.nsIXULChromeRegistry).getSelectedLocale("global")),
+					PREFS: encodeURIComponent(this.getPrefs()),
+					PREFSSERIALIZE: encodeURIComponent(JSON.stringify(this.getPrefs(true)))
 				}
 		let reg = new RegExp("\{([A-Z]+)\}", "gm");
 		url = url.replace(reg, function(a, b, c, d)
@@ -194,7 +315,7 @@ var ADDON_ID,
 } //bfht
 function openOptions()
 {
-	Services.wm.getMostRecentWindow('navigator:browser').BrowserOpenAddonsMgr("addons://detail/" + addon.id + "/preferences");
+	Services.wm.getMostRecentWindow('navigator:browser').BrowserOpenAddonsMgr("addons://detail/" + ADDON_ID + "/preferences");
 }
 function windowLoad(window, type)
 {
@@ -234,6 +355,7 @@ function windowLoad(window, type)
 		}, 500, copy.timer)
 	}//copy()
 
+
 	let menuitemMenu = document.createElement("menupopup"),
 			mi = document.createElement("menuitem");
 	mi.setAttribute("label", _("menu_copy_url"));
@@ -245,6 +367,13 @@ function windowLoad(window, type)
 	mi.className = "menuitem-iconic bfht_copy";
 	mi.id = "bfht_title";
 	menuitemMenu.appendChild(mi);
+/*
+	mi = mi.cloneNode(false);
+	mi.setAttribute("label", _("menu_delete_item"));
+	mi.className = "menuitem-iconic bfht_delete";
+	mi.id = "bfht_delete";
+	menuitemMenu.appendChild(mi);
+*/
 	menuitemMenu.appendChild(document.createElement("menuseparator"));
 	mi = mi.cloneNode(false);
 	mi.setAttribute("label", _("menu_options"));
@@ -528,7 +657,7 @@ function windowLoad(window, type)
 	{
 		for(let n = 0; n < aboutAddons.length; n++)
 		{
-			let c = _$(aboutAddons[n], "bfht_changesLogMenu");
+			let c = _$(aboutAddons[n], "bfht_showChangesLog_box");
 			if (!c)
 				continue;
 
@@ -550,10 +679,37 @@ function windowLoad(window, type)
 			if (!t.length)
 				t = [_("none")];
 
-			_$(aboutAddons[n], "bfht_changesLog").setAttribute("label", (t.join(" + ")));
+			_$(aboutAddons[n], "bfht_showChangesLog_menu").setAttribute("label", (t.join(" + ")));
 		}
 	}
-	Services.obs.addObserver(changesLogMenu, "bfht_changesLog", false);
+	function alltabssortMenu()
+	{
+		for(let n = 0; n < aboutAddons.length; n++)
+		{
+			let c = _$(aboutAddons[n], "bfht_alltabssort_box");
+			if (!c)
+				continue;
+
+			c = c.children;
+			let t = [];
+			for (let i = 0; i < c.length; i++)
+			{
+				if (!c[i].disabled && bfht.prefs.alltabssort.value & Number(c[i].getAttribute("value")))
+				{
+					t.push(_("alltabssort" + Number(c[i].getAttribute("value"))));
+					c[i].setAttribute("checked", true);
+				}
+				else
+					c[i].removeAttribute("checked");
+			}
+			if (!t.length)
+				t = [_("none")];
+
+			_$(aboutAddons[n], "bfht_alltabssort_menu").setAttribute("label", (t.join(" + ")));
+		}
+	}
+	Services.obs.addObserver(changesLogMenu, "bfht_showChangesLog_menu", false);
+	Services.obs.addObserver(alltabssortMenu, "bfht_alltabssort_menu", false);
 
 function FillHistoryMenu(aParent) {
 /*
@@ -572,6 +728,14 @@ function FillHistoryMenu(aParent) {
     aParent.hasStatusListener = true;
   }
 */
+	let type = 3;
+	if (document.popupNode && !bfht.prefs.combined.value)
+	{
+		if (document.popupNode.id != "forward-button")
+			type &= bfht.BACK_BUTTON;
+		if (document.popupNode.id != "back-button")
+			type &= bfht.FORWARD_BUTTON
+	}
 	//to calculate proper height, we must reset the view of the popup to default
 	aParent.removeAttribute("scrollbars");
 	aParent.style.maxHeight = "";
@@ -594,7 +758,7 @@ function FillHistoryMenu(aParent) {
   const tooltipBack = gNavigatorBundle.getString("tabHistory.goBack");
   const tooltipCurrent = gNavigatorBundle.getString("tabHistory.current");
   const tooltipForward = gNavigatorBundle.getString("tabHistory.goForward");
-
+	var numTotal = 0;
   function updateSessionHistory(sessionHistory, initial)
   {
     let count = sessionHistory.entries.length;
@@ -610,15 +774,21 @@ function FillHistoryMenu(aParent) {
         return;
       }
     }
+	let index = sessionHistory.index;
+	numTotal = (type == (bfht.FORWARD_BUTTON | bfht.BACK_BUTTON) ? count : type & bfht.FORWARD_BUTTON ? count - index -1 : index);
+
+	if ((type == (bfht.FORWARD_BUTTON | bfht.BACK_BUTTON) && numTotal <= 1) || !numTotal)
+		return false;
+
 	let num = "",
 			numBefore = "",
 			numAfter = "",
-			total = bfht.prefs.showIndex.value && bfht.prefs.showIndexTotal.value ? "/" + count : "",
+			total = bfht.prefs.showIndex.value && bfht.prefs.showIndexTotal.value ? "/" + numTotal : "",
 			j,
 			maxHeight = 0,
-			n = 0;
+			n = 0,
+			numAdded = 0;
 
-    let index = sessionHistory.index;
     let half_length = Math.floor(MAX_HISTORY_MENU_ITEMS / 2);
     let start = Math.max(index - half_length, 0);
     let end = Math.min(start == 0 ? MAX_HISTORY_MENU_ITEMS : index + half_length + 1, count);
@@ -650,7 +820,8 @@ function FillHistoryMenu(aParent) {
 //    for (let j = end - 1; j >= start; j--) {
 		do
 		{
-			let tooltip;
+			let tooltip,
+					noadd = false;
       let entry = sessionHistory.entries[j];
       let uri = entry.url;
 
@@ -693,26 +864,40 @@ function FillHistoryMenu(aParent) {
       }
 
       if (j < index) {
+				if (!(type & bfht.BACK_BUTTON))
+					noadd = true;
+				else
+					numAdded++;
         item.className = "unified-nav-back menuitem-iconic menuitem-with-favicon";
 //        item.setAttribute("tooltiptext", tooltipBack);
 				tooltip = tooltipBack;
       } else if (j == index) {
-				if (bfht.prefs.curFavIcon.value)
-				{
-					item.className = "unified-nav-current menuitem-iconic menuitem-with-favicon";
-					item.setAttribute("current", true);
-				}
+				if (type != (bfht.BACK_BUTTON | bfht.FORWARD_BUTTON))
+					noadd = true;
 				else
 				{
-	        item.setAttribute("type", "radio");
-	        item.setAttribute("checked", "true");
-	        item.className = "unified-nav-current";
+					numAdded++;
+					if (bfht.prefs.curFavIcon.value)
+					{
+						item.className = "unified-nav-current menuitem-iconic menuitem-with-favicon";
+						item.setAttribute("current", true);
+					}
+					else
+					{
+		        item.setAttribute("type", "radio");
+		        item.setAttribute("checked", "true");
+		        item.className = "unified-nav-current";
+					}
+					aParent.selectedItem = item;
+					aParent.selectedIndex = index;
+					tooltip = tooltipCurrent;
 				}
 //        item.setAttribute("tooltiptext", tooltipCurrent);
-				tooltip = tooltipCurrent;
-				aParent.selectedItem = item;
-				aParent.selectedIndex = index;
       } else {
+				if (!(type & bfht.FORWARD_BUTTON))
+					noadd = true;
+				else
+					numAdded++;
         item.className = "unified-nav-forward menuitem-iconic menuitem-with-favicon";
 //        item.setAttribute("tooltiptext", tooltipForward);
 				tooltip = tooltipForward;
@@ -724,10 +909,12 @@ function FillHistoryMenu(aParent) {
 				switch (bfht.prefs.showIndex.value)
 				{
 					case bfht.INDEX_BEFORE:
-							numBefore = "[" + num + total +"] ";
+//							numBefore = "[" + num + total +"] ";
+							numBefore = "[" + numAdded + total +"] ";
 						break;
 					case bfht.INDEX_AFTER:
-							numAfter = " [" + num + total + "]";
+//							numAfter = " [" + num + total + "]";
+							numAfter = " [" + numAdded + total + "]";
 						break;
 					default:
 				}
@@ -764,6 +951,8 @@ function FillHistoryMenu(aParent) {
 					break;
 			}
 			item.setAttribute("tooltiptext", tt);
+			if (noadd)
+				continue;
 
       if (!item.parentNode) {
         aParent.appendChild(item);
@@ -796,6 +985,7 @@ function FillHistoryMenu(aParent) {
         existingIndex++;
       }
     }
+    return true;
   }
 
 	let sessionHistory;
@@ -803,6 +993,7 @@ function FillHistoryMenu(aParent) {
 	{
 		//FF 47+
   	sessionHistory = SessionStore.getSessionHistory(gBrowser.selectedTab, updateSessionHistory);
+//log(SessionStore, 2);
 	}
 	catch(e)
 	{
@@ -835,19 +1026,17 @@ function FillHistoryMenu(aParent) {
 		if (aParent.hasAttribute("hide"))
 			popuphidden(aParent);
 
-    return false;
-}
+		return false;
+	}
   // don't display the popup for a single item
   if (sessionHistory.entries.length <= 1)
 	{
 		if (aParent.hasAttribute("hide"))
 			popuphidden(aParent);
-
     return false;
 	}
 
-  updateSessionHistory(sessionHistory, true);
-  return true;
+	return updateSessionHistory(sessionHistory, true);
 }//FillHistoryMenu()
 
 	let func = function(timer)
@@ -865,13 +1054,59 @@ function FillHistoryMenu(aParent) {
 	let FillHistoryMenuTimer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
 	FillHistoryMenuTimer.init(func, 10000, Ci.nsITimer.TYPE_REPEATING_SLACK);
 	_listen(window, window, "unload", cleanup, false);
+//sort all tabs menu;
+_listen(window, $("alltabs-popup"), "popupshowing", function(e)
+{
+	let type = bfht.prefs.alltabssort.value;
+	if (!type)
+		return
+
+	let items = e.target.getElementsByClassName("alltabs-item"),
+			list = [],
+			parent = items[0].parentNode,
+			domains = [];
+
+	for(let i = 0; i < items.length; i++)
+	{
+		items[i]._label = "";
+		let domain = "";
+		try
+		{
+			domain = items[i].tab.linkedBrowser.currentURI.host;
+		}catch(e){};
+
+		index = domains.indexOf(domain);
+		if (index == -1)
+			index = domains.push(domain)-1;
+
+		if (type & 4)
+			items[i]._label += index;
+		if (type & 2)
+			items[i]._label += domain;
+		if (type & 1)
+			items[i]._label += items[i].label;
+
+		list[list.length] = items[i];
+	}
+
+list.sort(function(a, b)
+	{
+		return a._label.toLowerCase().localeCompare(b._label.toLowerCase());
+	});
+
+	for(let i = 0 ; i < list.length; i++)
+		parent.appendChild(list[i]);
+
+}, false);
+
 	function cleanup()
 	{
 		FillHistoryMenuTimer.cancel();
 		//restore original function
 		window.FillHistoryMenu = _FillHistoryMenu;
 		Services.obs.removeObserver(overflowInit, "bfht_overlowInit", false);
-		Services.obs.removeObserver(changesLogMenu, "bfht_changesLog", false);
+		Services.obs.removeObserver(changesLogMenu, "bfht_showChangesLog_menu", false);
+		Services.obs.removeObserver(alltabssortMenu, "bfht_alltabssort_menu", false);
 	}
 	unload(function()
 	{
@@ -1130,7 +1365,7 @@ function addonOptionsDisplayed(document, aTopic, aData)
 		}
 		else
 		{
-			let href = bfht.fixUrl("mailto:{NAME} support<{EMAIL}>?subject={NAME}&body=%0A%0A__________%0A [Extension]%0A{NAME} v{VER}%0A%0A [Program]%0A{APP}%0A%0A [OS]%0A{OS}"),
+			let href = bfht.fixUrl("mailto:{NAME} support<{EMAIL}>?subject={NAME}&body=%0A%0A__________%0A [Extension]%0A{NAME} v{VER}%0A%0A [Program]%0A{APP} ({LOCALE})%0A%0A [OS]%0A{OS}%0A%0A [Preferences]%0A{PREFSSERIALIZE}"),
 					promptService = Cc["@mozilla.org/embedcomp/prompt-service;1"].getService(Ci.nsIPromptService),
 					button = promptService.confirmEx(window,
 										_("addExtensionsTitle"),
@@ -1157,6 +1392,7 @@ function addonOptionsDisplayed(document, aTopic, aData)
 				list = "";
 				for(let i in addons)
 				{
+					addons[i].sort();
 					let t = addons[i].join("\n");
 					if (t)
 						list += "\n\n [" + i.charAt(0).toUpperCase() + i.slice(1) + (addons[i].length > 1 ? "s" : "") + "]\n" + t;
@@ -1315,9 +1551,9 @@ function addonOptionsDisplayed(document, aTopic, aData)
 		if (!e.button)
 			showChangesLog(window);
 	}, false);
-	listen(window, $("bfht_changesLog"), "command", function(e)
+	listen(window, $("bfht_showChangesLog_menu"), "command", function(e)
 	{
-		let c = $("bfht_changesLogMenu").children,
+		let c = $("bfht_showChangesLog_box").children,
 				r = 0;
 		for (let i = 0; i < c.length; i++)
 			if (c[i].getAttribute("checked"))
@@ -1333,7 +1569,18 @@ function addonOptionsDisplayed(document, aTopic, aData)
 
 		bfht.pref.setIntPref("showChangesLog", r);
 	});
-	Services.obs.notifyObservers(null, 'bfht_changesLog', null);
+	Services.obs.notifyObservers(null, 'bfht_showChangesLog_menu', null);
+	listen(window, $("bfht_alltabssort_menu"), "command", function(e)
+	{
+		let c = $("bfht_alltabssort_box").children,
+				r = 0;
+		for (let i = 0; i < c.length; i++)
+			if (c[i].getAttribute("checked"))
+				r += Number(c[i].getAttribute("value"));
+
+		bfht.pref.setIntPref("alltabssort", r);
+	});
+	Services.obs.notifyObservers(null, 'bfht_alltabssort_menu', null);
 } //addonOptionsDisplayed()
 
 function onPrefChangeObserver(pref, aTopic, key)
@@ -1344,7 +1591,10 @@ function onPrefChangeObserver(pref, aTopic, key)
 	onPrefChange(pref, aTopic, key);
 
 	if (key == "showChangesLog")
-		Services.obs.notifyObservers(null, 'bfht_changesLog', null);
+		Services.obs.notifyObservers(null, 'bfht_showChangesLog_menu', null);
+
+	if (key == "alltabssort")
+		Services.obs.notifyObservers(null, 'bfht_alltabssort_menu', null);
 
 	if (key == "overflow" || key == "num")
 		Services.obs.notifyObservers(null, 'bfht_overlowInit', null);
@@ -1379,12 +1629,10 @@ function onPrefChange(pref, aTopic, key)
 				if (typeof(obj.default) != "string")
 					return false;
 
-				val = pref.getComplexValue(key, Ci.nsISupportsString).data;
+				val = bfht.prefString(pref, key);
 				if ("regexp" in obj && val.match(obj.regexp))
 				{
-					let str = Cc["@mozilla.org/supports-string;1"].createInstance(Ci.nsISupportsString);
-					str.data = val = val == obj.value ? obj.default : obj.value;
-					pref.setComplexValue(key, Ci.nsISupportsString, str);
+					bfht.prefString(pref, key, val = val == obj.value ? obj.default : obj.value);
 				}
 			break;
 		default:
@@ -1397,12 +1645,13 @@ function showChangesLog(window, type, demo)
 {
 	if (typeof(type) == "undefined" || type & CHANGESLOG_FULL)
 		window.QueryInterface(Ci.nsIInterfaceRequestor)
-					.getInterface(Ci.nsIWebNavigation)
-					.QueryInterface(Ci.nsIDocShellTreeItem)
-					.rootTreeItem
-					.QueryInterface(Ci.nsIInterfaceRequestor)
-					.getInterface(Ci.nsIDOMWindow)
-					.switchToTabHavingURI("chrome://bfht/content/changes.xul", true);
+			.getInterface(Ci.nsIWebNavigation)
+			.QueryInterface(Ci.nsIDocShellTreeItem)
+			.rootTreeItem
+			.QueryInterface(Ci.nsIInterfaceRequestor)
+			.getInterface(Ci.nsIDOMWindow)
+			.switchToTabHavingURI("chrome://" + ADDONDOMAIN + "/content/changes.xul", true);
+
 
 	if (type & CHANGESLOG_NOTIFICATION2)
 		try
@@ -1471,14 +1720,14 @@ function showChangesLog(window, type, demo)
 					str = strV[1];
 
 			}
-			bfht.notification.showAlertNotification(	'chrome://bfht/skin/logo.png',
+			bfht.notification.showAlertNotification(	"chrome://" + ADDONDOMAIN + "skin/images/logo.png",
 																								addon.name + " " + _("updated").replace("{old}", "v" + bfht.prevVersion).replace("{new}", "v" + addon.version),
 																								str.replace(/^\s+|\s+$/g, ""),
 																								true,
 																								null,
 																								notifListener,
 																								addon.name + " " + _("updated"));
-		}catch(e){_dump(e, 1);}
+		}catch(e){log(e, 1);}
 
 	if (type & CHANGESLOG_NOTIFICATION)
 	{
@@ -1527,7 +1776,7 @@ function showChangesLog(window, type, demo)
 					removeOnDismissal: demo ? true : false
 				}
 			);
-		}catch(e){_dump(e, 1)};
+		}catch(e){log(e, 1)};
 	}
 
 }//showChangesLog()
@@ -1541,7 +1790,13 @@ function startup(data, reason)
 	AddonManager.getAddonByID(ADDON_ID, function(a)
 	{
 		addon = a;
-		include("chrome/content/constants.js");
+		include("includes/constants.js");
+/*
+include("dump.js");
+log.folder = "";
+log.title = "BFHT";
+log.openConsole();
+*/
 		bfht.pref = Services.prefs.getBranch(PREF_BRANCH);
 		bfht.PREF_BRANCH = PREF_BRANCH;
 		include("includes/utils.js");
@@ -1562,6 +1817,7 @@ function startup(data, reason)
 		{
 			bfht.prefs.version.value = addon.version;
 			bfht.pref.setCharPref("version", addon.version);
+			bfht.pref.setCharPref("versionPrev", bfht.prevVersion);
 
 			let compare = Cc["@mozilla.org/xpcom/version-comparator;1"].getService(Ci.nsIVersionComparator).compare;
 
@@ -1598,7 +1854,7 @@ function startup(data, reason)
 					catch(e)
 					{
 						r = null;
-						_dump(o + " (" + g + ") doesn't exist");
+						log(o + " (" + g + ") doesn't exist");
 					}
 					if (d)
 						try{p.deleteBranch(o)}catch(e){};
@@ -1610,7 +1866,7 @@ function startup(data, reason)
 						}
 						catch(e)
 						{
-							_dump("error converting " + o + " (" + g + ") = " + r + " to " + n + " (" + s + ") = " + c(r))
+							log("error converting " + o + " (" + g + ") = " + r + " to " + n + " (" + s + ") = " + c(r))
 						}
 				}
 				return r;
@@ -1684,6 +1940,10 @@ function shutdown(data, reason)
 	Services.obs.removeObserver(addonOptionsDisplayed, "addon-options-displayed");
 	Services.obs.removeObserver(addonOptionsHidden, "addon-options-hidden");
 	unload();
+	try
+	{
+		bfht.pref.clearUserPref("versionPrev");
+	}catch(e){};
 }
 
 function install(data, reason)

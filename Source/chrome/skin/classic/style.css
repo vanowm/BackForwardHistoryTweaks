@@ -15,18 +15,24 @@ menupopup[hide] *
 	opacity: 0 !important;
 }
 
+.bfht_copy,
+.bfht_copy_link,
+.bfht_options image
+{
+	list-style-image:url("images/icons.png") !important;
+}
 .bfht_copy
 {
-	list-style-image:url("chrome://bfht/skin/copy.png") !important;
+	-moz-image-region: rect(0, 31px, 16px, 16px) !important;
 }
 .bfht_copy_link
 {
-	list-style-image:url("chrome://bfht/skin/copy_link.png") !important;
+	-moz-image-region: rect(0, 47px, 16px, 31px) !important;
 }
 
 .bfht_options
 {
-	list-style-image:url("chrome://bfht/skin/settings.png") !important;
+	-moz-image-region: rect(0 16px 16px 0) !important;
 }
 
 menupopup[contextOpened] menuitem[disabled="true"]
@@ -36,7 +42,7 @@ menupopup[contextOpened] menuitem[disabled="true"]
 }
 
 .popup-notification-icon[popupid="bfht-update"] {
-  list-style-image: url("chrome://bfht/skin/logo.png");
+  list-style-image: url("chrome://bfht/skin/images/logo.png");
 	width: 59px !important;
 	height: 36px !important;
 }
