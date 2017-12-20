@@ -1055,49 +1055,54 @@ function FillHistoryMenu(aParent) {
 	FillHistoryMenuTimer.init(func, 10000, Ci.nsITimer.TYPE_REPEATING_SLACK);
 	_listen(window, window, "unload", cleanup, false);
 //sort all tabs menu;
-_listen(window, $("alltabs-popup"), "popupshowing", function(e)
-{
-	let type = bfht.prefs.alltabssort.value;
-	if (!type)
-		return
-
-	let items = e.target.getElementsByClassName("alltabs-item"),
-			list = [],
-			parent = items[0].parentNode,
-			domains = [];
-
-	for(let i = 0; i < items.length; i++)
+	_listen(window, $("alltabs-popup"), "popupshowing", function(e)
 	{
-		items[i]._label = "";
-		let domain = "";
-		try
+		if (bfht.prefs.overflow.value == OVERFLOW_SCROLL)
+			e.target.setAttribute("scrollbars", true);
+		else
+			e.target.removeAttribute("scrollbars");
+
+		let type = bfht.prefs.alltabssort.value;
+		if (!type)
+			return
+
+		let items = e.target.getElementsByClassName("alltabs-item"),
+				list = [],
+				parent = items[0].parentNode,
+				domains = [];
+
+		for(let i = 0; i < items.length; i++)
 		{
-			domain = items[i].tab.linkedBrowser.currentURI.host;
-		}catch(e){};
+			items[i]._label = "";
+			let domain = "";
+			try
+			{
+				domain = items[i].tab.linkedBrowser.currentURI.host;
+			}catch(e){};
 
-		index = domains.indexOf(domain);
-		if (index == -1)
-			index = domains.push(domain)-1;
+			index = domains.indexOf(domain);
+			if (index == -1)
+				index = domains.push(domain)-1;
 
-		if (type & 4)
-			items[i]._label += index;
-		if (type & 2)
-			items[i]._label += domain;
-		if (type & 1)
-			items[i]._label += items[i].label;
+			if (type & 4)
+				items[i]._label += index;
+			if (type & 2)
+				items[i]._label += domain;
+			if (type & 1)
+				items[i]._label += items[i].label;
 
-		list[list.length] = items[i];
-	}
+			list[list.length] = items[i];
+		}
 
-list.sort(function(a, b)
-	{
-		return a._label.toLowerCase().localeCompare(b._label.toLowerCase());
-	});
+		list.sort(function(a, b)
+		{
+			return a._label.toLowerCase().localeCompare(b._label.toLowerCase());
+		});
 
-	for(let i = 0 ; i < list.length; i++)
-		parent.appendChild(list[i]);
+		for(let i = 0 ; i < list.length; i++)
+			parent.appendChild(list[i]);
 
-}, false);
+	}, false);
 
 	function cleanup()
 	{
