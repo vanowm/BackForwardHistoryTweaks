@@ -321,7 +321,6 @@ function windowLoad(window, type)
 {
 	if (!window)
 		return;
-
 	type = type || null;
 	let document = window.document,
 			_FillHistoryMenu = null,
@@ -483,6 +482,7 @@ function windowLoad(window, type)
 				popuphidden(menupopup);
 			}, true);
 
+
 			_listen(window, menupopup, "click", function(e)
 			{
 				if (e.button != 2 && menuitemMenu.state != "closed")
@@ -526,6 +526,7 @@ function windowLoad(window, type)
 
 				e.stopPropagation();
 				e.preventDefault();
+//e.stopImmediatePropagation();
 				if (bfht.prefs.rightClick.value != RIGHTCLICK_MENU)
 				{
 					copy(e.target.getAttribute("uri"))
@@ -588,6 +589,7 @@ function windowLoad(window, type)
 						{
 							e.preventDefault();
 							e.stopPropagation();
+//e.stopImmediatePropagation();
 							e.target.removeAttribute("_moz-menuactive");
 						}
 					}, true);
@@ -1055,6 +1057,11 @@ function FillHistoryMenu(aParent) {
 	FillHistoryMenuTimer.init(func, 10000, Ci.nsITimer.TYPE_REPEATING_SLACK);
 	_listen(window, window, "unload", cleanup, false);
 //sort all tabs menu;
+	let cleanDomain = function(txt)
+	{
+		return txt.toLowerCase().replace(/^www?\./, "");
+	}
+	
 	_listen(window, $("alltabs-popup"), "popupshowing", function(e)
 	{
 		if (bfht.prefs.overflow.value == OVERFLOW_SCROLL)
@@ -1077,7 +1084,7 @@ function FillHistoryMenu(aParent) {
 			let domain = "";
 			try
 			{
-				domain = items[i].tab.linkedBrowser.currentURI.host;
+				domain = cleanDomain(items[i].tab.linkedBrowser.currentURI.host);
 			}catch(e){};
 
 			index = domains.indexOf(domain);
@@ -1091,12 +1098,13 @@ function FillHistoryMenu(aParent) {
 			if (type & 1)
 				items[i]._label += items[i].label;
 
+			items[i]._label = items[i]._label.toLowerCase();
 			list[list.length] = items[i];
 		}
 
 		list.sort(function(a, b)
 		{
-			return a._label.toLowerCase().localeCompare(b._label.toLowerCase());
+			return a._label.localeCompare(b._label);
 		});
 
 		for(let i = 0 ; i < list.length; i++)
