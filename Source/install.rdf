@@ -2,7 +2,7 @@
 <RDF xmlns="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:em="http://www.mozilla.org/2004/em-rdf#">
 	<Description about="urn:mozilla:install-manifest">
 		<em:id>backforwardhistorytweaks@vano</em:id>
-		<em:version>1.6.2</em:version>
+		<em:version>1.6.3</em:version>
 		<em:name>Back/Forward History Tweaks</em:name>
 		<em:description>Set how many items show in the back/forward history dropdown, add scroll bars and more</em:description>
 		<em:type>2</em:type>
@@ -16,7 +16,7 @@
 			<Description>
 				<em:id>{ec8030f7-c20a-464f-9b0e-13a3a9e97384}</em:id>
 				<em:minVersion>13.0</em:minVersion>
-				<em:maxVersion>56.0a1</em:maxVersion>
+				<em:maxVersion>56.*</em:maxVersion>
 			</Description>
 		</em:targetApplication>
 	</Description>

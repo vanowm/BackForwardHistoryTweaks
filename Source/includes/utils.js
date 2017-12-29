@@ -297,7 +297,7 @@ function unload(callback, container) {
     try {
       callback();
     }
-    catch(ex) {}
+    catch(ex) {log(ex);}
   }
   unloaders.push(unloader);
 

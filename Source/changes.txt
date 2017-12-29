@@ -7,13 +7,14 @@ Legend:
 * = Changed
 - = Removed
 
-v1.6.2 (2017-12-21)
+v1.6.3 (2017-12-18)
 This extension cannot be ported to WebExtension. Currently WebExtension API doesn't provide ability manipulate browser's GUI. So, please don't ask update it to work with Firefox Quantum, it might still work if you enable extensions.legacy.enabled
 	+ ability copy list of current addon's preferences in clipboard when clicked on support email
 	+ option to show separate history list based on which button was clicked on (back separate from forward) (issue #12)
 	+ option to sort "All tabs" list, controls by extensions.backforwardhistorytweaks.alltabssort accepts number 1-7 (bitwise: 1 = by name, 2 = by domain, 3 = group by domain)
 	+ "All tabs" list have scrollbars or up/down buttons just like back/forward list
 ("All tabs" is totally unrelated to this addon, I know, but I personally needed it and since Mozilla doesn't accept new "legacy" addons anymore, I had no choice but to incorporate it into existing one)
+	* changed support email
 
 v1.5 (2016-03-14)
 	+ hidden setting extensions.backforwardhistorytweaks.curFavIcon which controls issue #7 (Add fav icon for current site)
