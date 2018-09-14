@@ -68,11 +68,12 @@ var ADDON_ID,
 		tooltip: {default: TOOLTIP_NONE, value: TOOLTIP_NONE, min: 0, max: 3}, //show website title and/or URL address in tooltip
 		order: {default: 1, value: 1, min: 0, max: 1}, //list order: 1 = newest (forward) on top, 0 = newest on bottom
 		version: {default: "install", value: ""},
-//		versionPrev: {default: "install", value: ""},
+		versionPrev: {default: "install", value: ""},
 		rightClick: {default: RIGHTCLICK_MENU, value: RIGHTCLICK_MENU, min:0, max: 3}, //right click on menu item
 		curFavIcon: {default: true, value: true}, //show fav icon for current website
 		combined: {default: true, value: true}, //combine history list for back and forward buttons into one
 		alltabssort: {default: 0, value: 0, min: 0, max: 7}, //sort all tabs list, bitwise: 1 = by name, 2 = by domain
+		alltabsmclick: {default: true, value: true}, //forward middle click in all tabs list
 		showChangesLog: {default: CHANGESLOG_NOTIFICATION, value: CHANGESLOG_NOTIFICATION, min:0, max: 7}, //show changes log after update
 	},
 	browser_sessionhistory_max_entries: 50,
@@ -423,8 +424,82 @@ function windowLoad(window, type)
 	function fixPopup(id)
 	{
 		let menupopup = $(id);
+/*
+log(window);
+	_listen(window, menupopup, "mousedown", function(e)
+	{
+log(e);
+		e.stopPropagation();
+		e.preventDefault();
+		if (e.button != 2)
+			return;
+
+		
+	},true);
+	_listen(window, menupopup, "click", function(e)
+	{
+log(e);
+		e.stopPropagation();
+		e.preventDefault();
+		if (e.button != 2)
+			return;
+
+		
+	},true);
+	_listen(window, menupopup, "mouseup", function(e)
+	{
+log(e);
+		e.stopPropagation();
+		e.preventDefault();
+		if (e.button != 2)
+			return;
+
+		
+	},true);
+	_listen(window, menupopup, "mousedown", function(e)
+	{
+log(e);
+		e.stopPropagation();
+		e.preventDefault();
+		if (e.button != 2)
+			return;
+
+		
+	},false);
+	_listen(window, menupopup, "click", function(e)
+	{
+log(e);
+		e.stopPropagation();
+		e.preventDefault();
+		if (e.button != 2)
+			return;
+
+		
+	},false);
+	_listen(window, menupopup, "mouseup", function(e)
+	{
+log(e);
+		e.stopPropagation();
+		e.preventDefault();
+		if (e.button != 2)
+			return;
+
+		
+	},false);
+*/
 		if (menupopup.tagName != "menupopup")
+		{
+/*
+let button = menupopup;
+menupopup = $(menupopup.getAttribute("context"));
+if (menupopup)
+{
+	button.removeAttribute("context");
+	return fixPopup(menupopup.id);
+}
+*/
 			menupopup = menupopup.firstChild;
+		}
 
 		if (!menupopup || menupopup.tagName != "menupopup")
 			return;
@@ -481,10 +556,57 @@ function windowLoad(window, type)
 			{
 				popuphidden(menupopup);
 			}, true);
-
-
+/*
+			_listen(window, menupopup, "command", function(e)
+			{
+log(e);
+				e.stopPropagation();
+				e.preventDefault();
+				return false;
+			}, false);
+			_listen(window, menupopup, "mousedown", function(e)
+			{
+log(e);
+				e.stopPropagation();
+				e.preventDefault();
+				return false;
+			}, false);
 			_listen(window, menupopup, "click", function(e)
 			{
+log(e);
+				e.stopPropagation();
+				e.preventDefault();
+				return false;
+			}, false);
+			_listen(window, menupopup, "command", function(e)
+			{
+log(e);
+				e.stopPropagation();
+				e.preventDefault();
+				return false;
+			}, true);
+			_listen(window, menupopup, "mousedown", function(e)
+			{
+log(e);
+				e.stopPropagation();
+				e.preventDefault();
+				return false;
+			}, true);
+			_listen(window, menupopup, "click", function(e)
+			{
+log(e);
+				e.stopPropagation();
+				e.preventDefault();
+				return false;
+			}, true);
+
+menupopup.removeAttribute("onclick");
+menupopup.removeAttribute("oncommand");
+menupopup.removeAttribute("command");
+*/
+			_listen(window, menupopup, "click", function(e)
+			{
+//log(menuitemMenu.state);
 				if (e.button != 2 && menuitemMenu.state != "closed")
 				{
 					menuitemMenu.hidePopup();
@@ -523,7 +645,7 @@ function windowLoad(window, type)
 				}
 				if (e.button != 2 || !bfht.prefs.rightClick.value)
 					return;
-
+//log("ok")
 				e.stopPropagation();
 				e.preventDefault();
 //e.stopImmediatePropagation();
@@ -601,7 +723,14 @@ function windowLoad(window, type)
 						menupopup.selectedItem.setAttribute("_moz-menuactive", true);
 					}, true);
 				}
+//log("wtf");
 				menuitemMenu.openPopup(null, null, e.clientX, e.clientY, menupopup.id == "backForwardMenu");
+/*
+window.setTimeout(function()
+{
+				menuitemMenu.openPopup(null, null, e.clientX, e.clientY, false);
+}, 1000)
+*/
 			}, false);
 
 			unload(function()
@@ -1050,6 +1179,7 @@ function FillHistoryMenu(aParent) {
 		}
 		if (!timer)
 			overflowInit()
+
 	}
 	//wait 0.5 sec for TMP finish patching FillHistoryMenu before we back it up and replace with ours and then as a precation repeat the check every 10 seconds;
 	async(func, 500);
@@ -1112,6 +1242,21 @@ function FillHistoryMenu(aParent) {
 
 	}, false);
 
+	_listen(window, $("alltabs-popup"), "click", function(e)
+	{
+		if (e.button != 1 || !bfht.prefs.alltabsmclick.value)
+			return;
+
+		let evt = document.createEvent("MouseEvents");
+		evt.initMouseEvent(e.type,
+			e.bubbles, e.cancelable, e.view, e.detail,
+			e.target.tab.boxObject.screenX, e.target.tab.boxObject.screenY, e.target.tab.boxObject.x, e.target.tab.boxObject.y,
+			e.ctrlKey, e.altKey, e.shiftKey, e.metaKey,
+			e.button, e.target.tab);
+
+		e.target.tab.dispatchEvent(evt);
+
+	}, false);
 	function cleanup()
 	{
 		FillHistoryMenuTimer.cancel();

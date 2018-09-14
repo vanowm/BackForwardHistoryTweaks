@@ -1,13 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE bindings [
-	<!ENTITY % textcontextDTD SYSTEM "chrome://global/locale/textcontext.dtd">
-	%textcontextDTD;
-	<!ENTITY % bfhtDTD SYSTEM "chrome://bfht/locale/backforwardhistorytweaks.dtd">
-	%bfhtDTD;
+<!DOCTYPE window [
+	<!ENTITY % textcontextDTD SYSTEM "chrome://global/locale/textcontext.dtd"> %textcontextDTD;
+	<!ENTITY % bfhtDTD SYSTEM "chrome://bfht/locale/backforwardhistorytweaks.dtd"> %bfhtDTD;
 ]>
 <vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 	<setting id="bfht_firstRow" type="control"/>
-	<setting id="bfht_num" type="integer" pref="extensions.backforwardhistorytweaks.num" title="&options.num;" desc="&options.num.desc;" flex="0" size="1"/>
+	<setting id="bfht_num" type="integer" pref="extensions.backforwardhistorytweaks.num" title="&fillLoginMenu.label;" desc="options.num.desc;" flex="0" size="1"/>
 	<setting id="bfht_overflow" type="menulist" _pref="extensions.backforwardhistorytweaks.overflow" title="&options.overflow;" desc="&options.overflow.desc;">
 		<menulist crop="none">
 			<menupopup>
@@ -89,6 +87,7 @@
 			</panel>
 		</button>
 	</setting>
+	<setting id="bfht_alltabsmclick" type="bool" pref="extensions.backforwardhistorytweaks.alltabsmclick" title="&options.alltabsmclick;" desc="&options.alltabsmclick.desc;" class="bfht"/>
 	<setting id="bfht_support" type="control" title="&options.support;">
 		<label>
 			<label id="bfht_homepage" class="text-link childlabel bfht" value="&options.homepage;" context="bfht_link"/>

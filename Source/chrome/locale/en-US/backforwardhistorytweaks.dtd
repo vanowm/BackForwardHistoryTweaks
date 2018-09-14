@@ -58,3 +58,5 @@
 <!ENTITY options.alltabssort.domain.desc		"Sort by domain">
 <!ENTITY options.alltabssort.group					"Group by domain">
 <!ENTITY options.alltabssort.group.desc			"Group by domain in the order of appearance">
+<!ENTITY options.alltabsmclick							"&quot;All tabs&quot; middle click">
+<!ENTITY options.alltabsmclick.desc					"Forward middle click on item in &quot;All tabs&quot; list to actual tab. Depends on your settings it will close the tab">
